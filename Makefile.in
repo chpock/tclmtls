@@ -310,6 +310,8 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 
 VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macosx
 
+srcdir_abs := $(shell cd "$(srcdir)" && pwd)
+
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
