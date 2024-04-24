@@ -137,7 +137,7 @@ AC_DEFUN([TCLMTLS_CHECK_MBEDTLS], [
 
     if test "$mbedtlsincdir" != "no" || test "$mbedtlslibdir" != "no"; then
         if test "${TEA_PLATFORM}" = "windows" ; then
-            TEA_ADD_LIBS([-lbcrypt])
+            TEA_ADD_LIBS([-lbcrypt -lws2_32])
         fi
         TEA_ADD_LIBS([-lmbedtls -lmbedx509 -lmbedcrypto])
 
@@ -170,7 +170,7 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
     if test -z "$mtlsbackend"; then
         AC_MSG_RESULT([yes])
         if test "${TEA_PLATFORM}" = "windows" ; then
-            TEA_ADD_LIBS([-lbcrypt])
+            TEA_ADD_LIBS([-lbcrypt -lws2_32])
         fi
         TEA_ADD_SOURCES([backend-mbedtls.c])
         TEA_ADD_INCLUDES([-I\"`${CYGPATH} ${srcdir}/mbedtls/include`\" -I\"`${CYGPATH} ${srcdir}/generic`\"])

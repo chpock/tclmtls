@@ -9144,7 +9144,7 @@ printf "%s\n" "skip" >&6; }
     if test "$mbedtlsincdir" != "no" || test "$mbedtlslibdir" != "no"; then
         if test "${TEA_PLATFORM}" = "windows" ; then
 
-    vars="-lbcrypt"
+    vars="-lbcrypt -lws2_32"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
 	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
@@ -9216,7 +9216,7 @@ printf %s "checking for the default SSL backend... " >&6; }
 printf "%s\n" "yes" >&6; }
         if test "${TEA_PLATFORM}" = "windows" ; then
 
-    vars="-lbcrypt"
+    vars="-lbcrypt -lws2_32"
     for i in $vars; do
 	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
 	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
