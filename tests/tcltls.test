@@ -1,0 +1,1684 @@
+# Copyright (c) 2024 Konstantin Kushnir <chpock@gmail.com>
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+# These test cases are similar to those in the tlsIO.test file
+# in the tcltls distribution.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+#namespace eval ::mtls {}
+#set ::mtls::debug_level 45
+
+package require mtls
+
+source [file join [testsDirectory] helper.tcl]
+
+set serverCert [file join [testsDirectory] certs server-cert.pem]
+set serverKey  [file join [testsDirectory] certs server-key.pem]
+set clientCert [file join [testsDirectory] certs client-cert.pem]
+set clientKey  [file join [testsDirectory] certs client-key.pem]
+set caCert     [file join [testsDirectory] certs ca-cert.pem]
+
+#::mtls::debug trace trace
+#::mtls::debug error error
+
+proc substvars { script } {
+    return [string map [list \
+        {$clientCert} [list $::clientCert] \
+        {$clientKey}  [list $::clientKey] \
+        {$serverCert} [list $::serverCert] \
+        {$serverKey}  [list $::serverKey]  \
+        {$caCert}     [list $::caCert]] \
+        $script]
+}
+
+proc generr { args } {
+    catch [list ::socket {*}$args] err
+    return $err
+}
+
+proc do_handshake { s { type readable } { cmd {} } args } {
+    if { [eof $s] } {
+        close $s
+        #dputs "handshake: eof"
+        set ::do_handshake "eof"
+    } elseif { [catch { mtls::handshake $s } result] } {
+        # Some errors are normal.
+        #dputs "handshake: $result"
+    } elseif { $result == 1 } {
+        # Handshake complete
+        if { [llength $args] } {
+            fconfigure $s {*}$args
+        }
+        if { $cmd == "" } {
+            fileevent $s $type ""
+        } else {
+            fileevent $s $type "$cmd [list $s]"
+        }
+        #dputs "handshake: complete"
+        set ::do_handshake "complete"
+    } else {
+        #dputs "handshake: in progress"
+    }
+}
+
+# Don't exist with an error if something wrong with this remote server.
+# This may lead to silent and undetectable failures.
+catch {
+
+if { [testConstraint server] && [testConstraint client] } {
+    set remoteServerIP 127.0.0.1
+    set remoteServerPort 8048
+    set remoteFile [file join [testsDirectory] tools remote.tcl]
+
+    set remoteProcChan [open "|[list [interpreter] $remoteFile \
+        -serverIsSilent -port $remoteServerPort \
+        -address $remoteServerIP]" w+]
+    set xx [gets $remoteProcChan]
+    set commandSocket [mtls::socket -cafile $caCert \
+        -certfile $clientCert -keyfile $clientKey \
+        $remoteServerIP $remoteServerPort]
+    fconfigure $commandSocket -translation crlf -buffering line
+
+}
+
+}
+
+proc sendCommand {c} {
+    global commandSocket
+    if { [eof $commandSocket] } {
+        error "remote server disappeared"
+    }
+    if { [catch { puts $commandSocket $c } msg] } {
+        error "remote server disappeared: $msg"
+    }
+    if { [catch { puts $commandSocket "--Marker--Marker--Marker--" } msg] } {
+        error "remote server disappeared: $msg"
+    }
+    set resp ""
+    while { 1 } {
+        set line [gets $commandSocket]
+        if { [eof $commandSocket] } {
+            error "remote server disappeared"
+        }
+        if { [string compare $line "--Marker--Marker--Marker--"] == 0 } {
+            if { [string compare [lindex $resp 0] error] == 0 } {
+                error [lindex $resp 1]
+            } else {
+                return [lindex $resp 1]
+            }
+        } else {
+            append resp $line "\n"
+        }
+    }
+}
+
+proc sendCertValues {} {
+    # We need to be able to send certificate values that normalize
+    # filenames across platforms
+    sendCommand {
+        set certsDir   [file join [file dirname [info script]] .. certs]
+        set serverCert [file join $certsDir server-cert.pem]
+        set clientCert [file join $certsDir client-cert.pem]
+        set caCert     [file join $certsDir ca-cert.pem]
+        set serverKey  [file join $certsDir server-key.pem]
+        set clientKey  [file join $certsDir client-key.pem]
+    }
+}
+
+test tlsIO-1.1 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -server
+} -returnCodes error -result [generr -server]
+
+test tlsIO-1.2 {arg parsing for socket command} -constraints server -body {
+    mtls::socket -server foo
+} -returnCodes error -result [generr -server foo]
+
+test tlsIO-1.3 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -myaddr
+} -returnCodes error -result [generr -myaddr]
+
+test tlsIO-1.4 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -myaddr 127.0.0.1
+} -returnCodes error -result [generr -myaddr 127.0.0.1]
+
+test tlsIO-1.5 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -myport
+} -returnCodes error -result [generr -myport]
+
+test tlsIO-1.6 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -myport xxxx
+} -returnCodes error -result [generr -myport xxxx]
+
+test tlsIO-1.7 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -myport 2522
+} -returnCodes error -result [generr -myport 2522]
+
+# the -froboz option will be eaten by mtls::import, since it
+# is an unknown option for ::socket.
+test tlsIO-1.8 {arg parsing for socket command} -constraints client -body {
+    mtls::socket -froboz
+} -returnCodes error -match glob -result [generr]
+
+test tlsIO-1.9 {arg parsing for socket command} -constraints server -body {
+    mtls::socket -server foo -myport 2521 3333
+} -returnCodes error -match glob -result [generr -server foo -myport 2521 3333]
+
+test tlsIO-1.10 {arg parsing for socket command} -constraints client -body {
+    mtls::socket host 2528 -junk
+} -returnCodes error -result [generr host 2528 -junk]
+
+test tlsIO-1.11 {arg parsing for socket command} -constraints server -body {
+    mtls::socket -server callback 2520 --
+} -returnCodes error -result [generr -server callback 2520 --]
+
+test tlsIO-1.12 {arg parsing for socket command} -constraints client -body {
+    mtls::socket foo badport
+} -returnCodes error -result [generr foo badport]
+
+test tlsIO-2.1 {tcp connection} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { sock addr port } {
+            close $sock
+            set ::x done
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828
+    } err] } {
+        set res $err
+    } {
+        lappend res [gets $s]
+        close $err
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready done ""] -cleanup {
+    catch { close $s }
+    catch { close $err }
+    file delete -force $script
+    unset -nocomplain res err script
+}
+
+test tlsIO-2.2 {tcp connection with client port specified} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { sock addr port } {
+            puts "[gets $sock] $port"
+            close $sock
+            set ::x done
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -myport 8829 -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828
+    } sock] } {
+        set res $sock
+    } {
+        puts $sock hello
+        flush $sock
+        lappend res [gets $s]
+        lappend res [gets $s]
+        close $sock
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready "hello 8829" done ""] -cleanup {
+    catch { close $s }
+    catch { close $sock }
+    file delete -force $script
+    unset -nocomplain res sock script
+}
+
+test tlsIO-2.3 {tcp connection with client interface specified} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { sock addr port } {
+            puts "[gets $sock] $addr"
+            close $sock
+            set ::x done
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -myaddr 127.0.0.1 -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828
+    } sock] } {
+        set res $sock
+    } {
+        puts $sock hello
+        flush $sock
+        lappend res [gets $s]
+        lappend res [gets $s]
+        close $sock
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready "hello 127.0.0.1" done ""] -cleanup {
+    catch { close $s }
+    catch { close $sock }
+    file delete -force $script
+    unset -nocomplain res sock script
+}
+
+test tlsIO-2.4 {tcp connection with server interface specified} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { sock addr port } {
+            puts "[gets $sock]"
+            close $sock
+            set ::x done
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert \
+            -myaddr localhost 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert localhost 8828
+    } sock] } {
+        set res $sock
+    } {
+        puts $sock hello
+        flush $sock
+        lappend res [gets $s]
+        lappend res [gets $s]
+        close $sock
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready hello done ""] -cleanup {
+    catch { close $s }
+    catch { close $sock }
+    file delete -force $script
+    unset -nocomplain res sock script
+}
+
+test tlsIO-2.7 {echo server, one line} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc echo { sock } {
+            set l [gets $sock]
+            if { [eof $sock] } {
+                close $sock
+                set ::x done
+            } else {
+                puts $sock $l
+            }
+        }
+        proc accept { sock addr port } {
+            fileevent $sock readable [list echo $sock]
+            fconfigure $sock -translation lf -buffering line
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828
+    } sock] } {
+        set res $sock
+    } {
+        fconfigure $sock -buffering line -translation lf
+        puts $sock "hello 12345"
+        lappend res [gets $sock]
+        close $sock
+        lappend res [gets $s]
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready "hello 12345" done ""] -cleanup {
+    catch { close $s }
+    catch { close $sock }
+    file delete -force $script
+    unset -nocomplain res sock script
+}
+
+test tlsIO-2.8 {echo server, loop 50 times, single connection} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc echo { sock } {
+            set l [gets $sock]
+            if { [eof $sock] } {
+                close $sock
+                set ::x done
+            } else {
+                incr ::i
+                puts $sock $l
+            }
+        }
+        proc accept { sock addr port } {
+            fileevent $sock readable [list echo $sock]
+            fconfigure $sock -translation lf -buffering line
+        }
+        set i 0
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 20000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        close $s
+        puts "$x $i"
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch {
+        mtls::socket -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828
+    } sock] } {
+        set res $sock
+    } {
+        fconfigure $sock -buffering line -translation lf
+        for { set i 0 } { $i < 50 } { incr i } {
+            puts $sock "hello 12345"
+            gets $sock
+        }
+        close $sock
+        lappend res [gets $s]
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready "done 50" ""] -cleanup {
+    catch { close $s }
+    catch { close $sock }
+    file delete -force $script
+    unset -nocomplain res sock script i
+}
+
+test tlsIO-2.9 {socket conflict} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828
+        puts ready
+        after 1000
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    gets $s
+    set o [mtls::socket -server accept -certfile $serverCert \
+        -keyfile $serverKey -cafile $caCert 8828]
+} -returnCodes error -result {couldn't open socket: address already in use} -cleanup {
+    catch { close $o }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain s o script
+}
+
+test tlsIO-2.10 {close on accept, accepted socket lives} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc readit { sock } {
+            set ::x [gets $sock]
+            close $sock
+        }
+        proc accept { sock addr port } {
+            close $::s
+            fileevent $sock readable [list readit $sock]
+            fconfigure $sock -translation lf
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        puts "$x"
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script 2>@stderr" r]
+    set res [list]
+    lappend res [gets $s]
+    set cs [mtls::socket -certfile $clientCert -cafile $caCert \
+        -keyfile $clientKey localhost 8828]
+    puts $cs "hello"
+    flush $cs
+    lappend res [gets $s]
+    close $cs
+    close $s
+    set res
+} -result [list ready hello] -cleanup {
+    catch { close $cs }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain s res cs
+}
+
+# TODO: Investigate test failure on MacOS. Sometimes this test succeeds when
+# the timeout after the update command is increased to 3s or more.
+test tlsIO-2.11 {detecting new data} -constraints { client server notDarwin } -body {
+    proc accept {s a p} {
+        global sock
+        # when doing an in-process client/server test, both sides need
+        # to be non-blocking for the TLS handshake.  Also make sure
+        # to return the channel to line buffering mode.
+        fconfigure $s -blocking 0 -buffering line
+        set sock $s
+        fileevent $s readable [list do_handshake $s]
+    }
+    set s [mtls::socket -server accept \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey 8400]
+    set sock ""
+    set s2 [mtls::socket -certfile $clientCert -cafile $caCert \
+        -keyfile $clientKey 127.0.0.1 8400]
+    # when doing an in-process client/server test, both sides need
+    # to be non-blocking for the TLS handshake  Also make sure to
+    # return the channel to line buffering mode (TLS sets it to 'none').
+    fconfigure $s2 -blocking 0 -buffering line
+    set timer [after 5000 [list set sock timeout]]
+    vwait sock
+    after cancel $timer
+    puts $s2 one
+    flush $s2
+    # need update to complete TLS handshake in-process
+    update
+    after 500
+    fconfigure $sock -blocking 0
+    set result a:[gets $sock]
+    lappend result b:[gets $sock]
+    fconfigure $sock -blocking 1
+    puts $s2 two
+    flush $s2
+    fconfigure $sock -blocking 1
+    lappend result c:[gets $sock]
+    fconfigure $sock -blocking 1
+    close $s2
+    close $s
+    close $sock
+    set result
+} -result [list a:one b: c:two] -cleanup {
+    catch { close $s2 }
+    catch { close $s }
+    catch { close $sock }
+    unset -nocomplain s sock s2 result timer
+    rename accept {}
+}
+
+# Perhaps this test case is incorrect. Handshake on the client is
+# not initiated, so there is no SSL connection. However, it is hard
+# to say how successful this test might be if an SSL connection
+# is actually established.
+
+test tlsIO-2.12 {tcp connection; no certificates specified} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { sock addr port } {
+            set ::x done
+            close $sock
+        }
+        set s [mtls::socket -server accept 8828]
+        set timer [after 2000 [list set x timeout]]
+        puts "ready"
+        vwait x
+        after cancel $timer
+        puts "$x"
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+    if { [catch { mtls::socket 127.0.0.1 8828 } msg] } {
+        set res $msg
+    } else {
+        lappend res [gets $s]
+        close $msg
+    }
+    lappend res [gets $s]
+    close $s
+    set res
+} -result [list ready done {}] -cleanup {
+    catch { close $msg }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain s res msg
+}
+
+test tlsIO-3.2 {server with several clients} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc echo { sock } {
+            set l [gets $sock]
+            if { [eof $sock] } {
+                close $sock
+                lappend ::x done
+            } else {
+                puts $sock $l
+            }
+        }
+        proc accept { sock addr port } {
+            fileevent $sock readable [list echo $sock]
+            fconfigure $sock -translation lf -buffering line
+        }
+        set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+        set timer [after 5000 [list set x timeout]]
+        puts "ready"
+        while { ![info exists x] || $x ne "timeout" } {
+            vwait x
+            if { [llength $x] == 3 } break
+        }
+        after cancel $timer
+        close $s
+        puts $x
+    }] script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [list]
+    lappend res [gets $s]
+
+    set s1 [mtls::socket -certfile $clientCert \
+        -keyfile $clientKey -cafile $caCert 127.0.0.1 8828]
+    fconfigure $s1 -buffering line
+    set s2 [mtls::socket -certfile $clientCert \
+        -keyfile $clientKey -cafile $caCert 127.0.0.1 8828]
+    fconfigure $s2 -buffering line
+    set s3 [mtls::socket -certfile $clientCert \
+        -keyfile $clientKey -cafile $caCert 127.0.0.1 8828]
+    fconfigure $s3 -buffering line
+
+    set success 0
+    for { set i 0 } { $i < 100 } { incr i } {
+        puts $s1 [set m hello,tlsIO-3.2,s1]
+        set e1 [expr { [gets $s1] eq $m }]
+        puts $s2 [set m hello,tlsIO-3.2,s2]
+        set e2 [expr { [gets $s2] eq $m }]
+        puts $s3 [set m hello,tlsIO-3.2,s3]
+        set e3 [expr { [gets $s3] eq $m }]
+        if { $e1 && $e2 && $e3 } {
+            incr success
+        }
+    }
+
+    close $s3
+    close $s2
+    close $s1
+
+    lappend res [gets $s]
+    close $s
+
+    lappend res $success
+    set res
+} -result [list ready [list done done done] 100] -cleanup {
+    catch { close $s }
+    catch { close $s1 }
+    catch { close $s2 }
+    catch { close $s3 }
+    file delete -force $script
+    unset -nocomplain s res s1 s2 s3 m e1 e2 e3 success
+}
+
+test tlsIO-4.1 {server with several clients} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        gets stdin
+        set s [mtls::socket -certfile $clientCert \
+            -keyfile $clientKey -cafile $caCert 127.0.0.1 8828]
+        fconfigure $s -buffering line
+        for { set i 0 } { $i < 100 } { incr i } {
+            puts $s hello
+            gets $s
+        }
+        close $s
+        puts bye
+        gets stdin
+    }] script]
+} -body {
+    proc accept { s a p } {
+        fconfigure $s -buffering line
+        fileevent $s readable [list echo $s]
+    }
+    proc echo { s } {
+        set l [gets $s]
+        if { [eof $s] } {
+            close $s
+            lappend ::x done
+        } else {
+            puts $s $l
+        }
+    }
+    set s [mtls::socket -server accept -certfile $serverCert \
+            -keyfile $serverKey -cafile $caCert 8828]
+    set p1 [open "|[interpreter] $script 2>@stderr" r+]
+    fconfigure $p1 -buffering line
+    set p2 [open "|[interpreter] $script 2>@stderr" r+]
+    fconfigure $p2 -buffering line
+    set p3 [open "|[interpreter] $script 2>@stderr" r+]
+    fconfigure $p3 -buffering line
+    puts $p1 "run"
+    puts $p2 "run"
+    puts $p3 "run"
+    set timer [after 30000 [list set x timeout]]
+    set x [list]
+    while { ![info exists x] || $x ne "timeout" } {
+        vwait x
+        if { [llength $x] == 3 } break
+    }
+    after cancel $timer
+    close $s
+    set res [list $x]
+    lappend res [list p1 [gets $p1]]
+    lappend res [list p2 [gets $p2]]
+    lappend res [list p3 [gets $p3]]
+    puts $p1 bye
+    puts $p2 bye
+    puts $p3 bye
+    close $p1
+    close $p2
+    close $p3
+    set res
+} -result [list [list done done done] [list p1 bye] [list p2 bye] [list p3 bye]] -cleanup {
+    catch { close $s }
+    catch { close $p1 }
+    catch { close $p2 }
+    catch { close $p3 }
+    file delete -force $script
+    unset -nocomplain p1 p2 p3 s timer res
+    rename accept {}
+    rename echo {}
+}
+
+test tlsIO-4.2 {byte order problems, socket numbers, htons} -constraints server -body {
+    set s [mtls::socket -server dodo 0x3000]
+} -match glob -result "sock*" -cleanup {
+    close $s
+}
+
+test tlsIO-5.1 {byte order problems, socket numbers, htons} -constraints {
+    server unixOnly notRoot
+} -body {
+    set s [mtls::socket -server dodo 0x1]
+} -returnCodes error -result {couldn't open socket: permission denied} -cleanup {
+    catch { close $s }
+}
+
+test tlsIO-5.2 {byte order problems, socket numbers, htons} -constraints server -body {
+    set s [mtls::socket -server dodo 0x10000]
+} -returnCodes error -result {couldn't open socket: port number too high} -cleanup {
+    catch { close $s }
+}
+
+test tlsIO-5.3 {byte order problems, socket numbers, htons} -constraints {
+    server unixOnly notRoot
+} -body {
+    set s [mtls::socket -server dodo 21]
+} -returnCodes error -result {couldn't open socket: permission denied} -cleanup {
+    catch { close $s }
+}
+
+test tlsIO-6.1 {accept callback error} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        gets stdin
+        mtls::socket -cafile $caCert 127.0.0.1 8828
+    }] script]
+} -body {
+    set n [open "|[interpreter] $script" r+]
+    proc bgerror { args } {
+        set ::x $args
+    }
+    proc accept { s a p } {
+        expr 10 / 0
+    }
+    set timer [after 10000 [list set x timeout]]
+    set s [mtls::socket -server accept \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey 8828]
+    puts $n "run"
+    close $n
+    vwait x
+    after cancel $timer
+    close $s
+    set x
+} -result [list {divide by zero}] -cleanup {
+    catch { close $n }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain n s timer x
+    rename bgerror {}
+    rename accept {}
+}
+
+test tlsIO-7.1 {testing socket specific options} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { s a p } {
+            set ::x done
+        }
+        set timer [after 1000 [list set x timeout]]
+        mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8828
+        puts ready
+        vwait x
+        after cancel $timer
+    }] script]
+} -body {
+    set n [open "|[interpreter] $script" r]
+    gets $n
+    set s [mtls::socket -certfile $clientCert -cafile $caCert \
+        -keyfile $clientKey 127.0.0.1 8828]
+    set p [fconfigure $s -peername]
+    close $s
+    close $n
+    set l ""
+    lappend l [string compare [lindex $p 0] 127.0.0.1]
+    lappend l [string compare [lindex $p 2] 8828]
+    lappend l [llength $p]
+} -result {0 0 3} -cleanup {
+    catch { close $n }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain n s p l
+}
+
+test tlsIO-7.2 {testing socket specific options} -constraints { client server } -setup {
+    set script [makeFile [substvars {
+        package require mtls
+        proc accept { s a p } {
+            set ::x done
+        }
+        set timer [after 1000 [list set x timeout]]
+        mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8828
+        puts ready
+        vwait x
+        after cancel $timer
+    }] script]
+} -body {
+    set n [open "|[interpreter] $script 2>@stderr" r]
+    gets $n
+    set s [mtls::socket -certfile $clientCert -cafile $caCert \
+        -keyfile $clientKey 127.0.0.1 8828]
+    set p [fconfigure $s -sockname]
+    close $s
+    close $n
+    set l ""
+    lappend l [llength $p]
+    lappend l [lindex $p 0]
+    lappend l [string equal [lindex $p 2] 8821]
+} -result {3 127.0.0.1 0} -cleanup {
+    catch { close $n }
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain n s p l
+}
+
+test tlsIO-7.3 {testing socket specific options} -constraints { client server } -body {
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8822]
+    set l [llength [fconfigure $s]]
+    close $s
+    update
+    expr {$l >= 12 && (($l % 2) == 0)}
+} -result 1 -cleanup {
+    catch { close $s }
+    unset -nocomplain s l
+}
+
+test tlsIO-7.4 {testing socket specific options} -constraints { client server } -body {
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8823]
+    proc accept {s a p} {
+        set ::x [fconfigure $s -sockname]
+        close $s
+    }
+    set s1 [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        localhost 8823]
+    set timer [after 2000 [list set x timeout]]
+    vwait x
+    after cancel $timer
+    close $s
+    close $s1
+    set l ""
+    lappend l [lindex $x 2] [llength $x]
+} -result {8823 3} -cleanup {
+    catch { close $s }
+    catch { close $s1 }
+    unset -nocomplain s s1 x timer l
+}
+
+test tlsIO-7.5 {testing socket specific options} -constraints { client server } -body {
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8823]
+    proc accept {s a p} {
+        set ::x [fconfigure $s -sockname]
+        close $s
+    }
+    set s1 [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        localhost 8823]
+    set timer [after 2000 [list set x timeout]]
+    vwait x
+    after cancel $timer
+    close $s
+    close $s1
+    set l ""
+    lappend l [localIP [lindex $x 0]] [lindex $x 2] [llength $x]
+} -result [list 127.0.0.1 8823 3] -cleanup {
+    catch { close $s }
+    catch { close $s1 }
+    unset -nocomplain s s1 x timer l
+}
+
+# TODO: Investigate test failure on MacOS.
+test tlsIO-8.1 {testing -async flag on sockets} -constraints { client server notDarwin } -body {
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8823]
+    proc accept {s a p} {
+        fconfigure $s -blocking 0 -buffering line
+        puts $s bye
+        set ::x done
+        # On Windows, the client could not retrieve data from a closed
+        # socket. It fails with:
+        #
+        #     [mtls WRN] ..[upstream] read [0] bytes [eof:1 err=permission denied(13)]
+        #
+        # So it should be closed after some delay. Other platforms
+        # should not be affected. This test case from tcltls has the same
+        # behavior and corresponding comment.
+        if { $::tcl_platform(platform) eq "windows" } {
+            after 500 [list close $s]
+        } {
+            close $s
+        }
+    }
+    set s1 [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        -async localhost 8823]
+    # when doing an in-process client/server test, both sides need
+    # to be non-blocking for the TLS handshake  Also make sure to
+    # return the channel to line buffering mode (TLS sets it to 'none').
+    fconfigure $s1 -blocking 0 -buffering line
+    set timer [after 10000 [list set x timeout]]
+    vwait x
+    after cancel $timer
+    # TLS handshaking needs one byte from the client...
+    puts $s1 a
+    # need update to complete TLS handshake in-process
+    update
+    fconfigure $s1 -blocking 1
+    set z [gets $s1]
+    close $s
+    close $s1
+    set z
+} -result bye -cleanup {
+    catch { close $s }
+    catch { close $s1 }
+    unset -nocomplain s s1 x timer z
+    rename accept {}
+}
+
+test tlsIO-9.1 {testing spurious events} -constraints { client server } -body {
+    set len 0
+    set spurious 0
+    set done 0
+    proc readlittle {s} {
+        global spurious done len
+        set l [read $s 1]
+        if {[string length $l] == 0} {
+            if {![eof $s]} {
+                incr spurious
+            } else {
+                close $s
+                set done 1
+            }
+        } else {
+            incr len [string length $l]
+        }
+    }
+    proc accept {s a p} {
+        fconfigure $s -blocking 0
+        fileevent $s readable [list do_handshake $s readable readlittle \
+            -buffering none]
+    }
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8831]
+    set c [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        localhost 8831]
+    # This differs from socket-9.1 in that both sides need to be
+    # non-blocking because of TLS' required handshake
+    fconfigure $c -blocking 0
+    puts -nonewline $c 01234567890123456789012345678901234567890123456789
+    close $c
+    set timer [after 2000 [list set done timeout]]
+    vwait done
+    after cancel $timer
+    close $s
+    list $spurious $len
+} -result {0 50} -cleanup {
+    catch { close $s }
+    catch { close $c }
+    unset -nocomplain len spurious done s c timer
+    rename accept {}
+    rename readlittle {}
+}
+
+test tlsIO-9.2 {testing async write, fileevents, flush on close} -constraints { client server } -body {
+    set firstblock [string repeat a 31]
+    set secondblock [string repeat b 65535]
+    proc accept {s a p} {
+        fconfigure $s -blocking 0
+        fileevent $s readable [list do_handshake $s readable readable \
+            -translation lf -buffersize 16384 -buffering line]
+    }
+    proc readable {s} {
+        set l [gets $s]
+        fileevent $s readable {}
+        after 1000 respond $s
+    }
+    proc respond {s} {
+        global firstblock
+        puts -nonewline $s $firstblock
+        after 1000 writedata $s
+    }
+    proc writedata {s} {
+        global secondblock
+        puts -nonewline $s $secondblock
+        close $s
+    }
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8832]
+    set c [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        localhost 8832]
+    fconfigure $c -blocking 0 -trans lf -buffering line
+    set count 0
+    puts $c hello
+    proc readit {s} {
+        global count done
+        set data [read $s]
+        incr count [string length $data]
+        if {[eof $s]} {
+            close $s
+            set done 1
+        }
+    }
+    fileevent $c readable [list readit $c]
+    set done 0
+    set timer [after 10000 [list set done timeout]]
+    vwait done
+    after cancel $timer
+    close $s
+    list $count $done
+} -result {65566 1} -cleanup {
+    catch { close $s }
+    catch { close $c }
+    unset -nocomplain firstblock secondblock s c count done timer
+    rename accept {}
+    rename readable {}
+    rename respond {}
+    rename writedata {}
+    rename readit {}
+}
+
+test tlsIO-10.1 {testing socket accept callback error handling} -constraints { client server } -body {
+    set goterror 0
+    proc bgerror args {global goterror; set goterror 1}
+    set s [mtls::socket -cafile $caCert -server accept 8898]
+    proc accept {s a p} {close $s; error}
+    set c [mtls::socket -cafile $caCert 127.0.0.1 8898]
+    vwait goterror
+    close $s
+    close $c
+    set goterror
+} -result 1 -cleanup {
+    catch { close $s }
+    catch { close $c }
+    rename bgerror {}
+    rename accept {}
+    unset -nocomplain goterror s c
+}
+
+test tlsIO-11.1 {tcp connection} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set socket9_1_test_server [mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8834]
+        proc accept {s a p} {
+            mtls::handshake $s
+            puts $s done
+            close $s
+        }
+    }
+    set s [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        $remoteServerIP 8834]
+    set r [gets $s]
+    close $s
+    sendCommand {close $socket9_1_test_server}
+    set r
+} -result done -cleanup {
+    catch { close $s }
+    unset -nocomplain s r
+}
+
+test tlsIO-11.2 {client specifies its port} -constraints { client server } -body {
+    set port 8839
+    sendCertValues
+    sendCommand {
+        set socket9_2_test_server [mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8835]
+        proc accept {s a p} {
+            mtls::handshake $s
+            puts $s $p
+            close $s
+        }
+    }
+    set s [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        -myport $port $remoteServerIP 8835]
+    set r [gets $s]
+    close $s
+    sendCommand {close $socket9_2_test_server}
+    if {$r == $port} {
+        set result ok
+    } else {
+        set result broken
+    }
+    set result
+} -result ok -cleanup {
+    catch { close $s }
+    unset -nocomplain s r result
+}
+
+test tlsIO-11.3 {trying to connect, no server} -constraints { client server } -body {
+    set status ok
+    if {![catch {
+        set s [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIp 8836]
+    }]} {
+        if {![catch {gets $s}]} {
+            set status broken
+        }
+        close $s
+    }
+    set status
+} -result ok -cleanup {
+    catch { close $s }
+    unset -nocomplain status s
+}
+
+test tlsIO-11.4 {remote echo, one line} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set socket10_6_test_server [mtls::socket \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+            -server accept 8836]
+        proc accept {s a p} {
+            mtls::handshake $s
+            fileevent $s readable [list echo $s]
+            fconfigure $s -buffering line -translation crlf
+        }
+        proc echo {s} {
+            set l [gets $s]
+            if {[eof $s]} {
+                close $s
+            } else {
+                puts $s $l
+            }
+        }
+    }
+    set f [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        $remoteServerIP 8836]
+    fconfigure $f -translation crlf -buffering line
+    puts $f hello
+    set r [gets $f]
+    close $f
+    sendCommand {close $socket10_6_test_server}
+    set r
+} -result hello -cleanup {
+    catch { close $f }
+    unset -nocomplain f r
+}
+
+test tlsIO-11.5 {remote echo, 50 lines} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set socket10_7_test_server [mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8836]
+        proc accept {s a p} {
+            mtls::handshake $s
+            fileevent $s readable [list echo $s]
+            fconfigure $s -buffering line -translation crlf
+        }
+        proc echo {s} {
+            set l [gets $s]
+            if {[eof $s]} {
+                close $s
+            } else {
+                puts $s $l
+            }
+        }
+    }
+    set f [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIP 8836]
+    fconfigure $f -translation crlf -buffering line
+    for {set cnt 0} {$cnt < 50} {incr cnt} {
+        puts $f "hello, $cnt"
+        if {[string compare [gets $f] "hello, $cnt"] != 0} {
+            break
+        }
+    }
+    close $f
+    sendCommand {close $socket10_7_test_server}
+    set cnt
+} -result 50 -cleanup {
+    catch { close $f }
+    unset -nocomplain f cnt
+}
+
+if { $tcl_platform(platform) == "macintosh" } {
+    set conflictResult {0 8836}
+} else {
+    set conflictResult {1 {couldn't open socket: address already in use}}
+}
+
+test tlsIO-11.6 {socket conflict} -constraints server -body {
+    set s1 [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8836]
+    if {[catch {set s2 [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8836]} msg]} {
+        set result [list 1 $msg]
+    } else {
+        set result [list 0 [lindex [fconfigure $s2 -sockname] 2]]
+        close $s2
+    }
+    close $s1
+    set result
+} -result $conflictResult -cleanup {
+    catch { close $s1 }
+    catch { close $s2 }
+    unset -nocomplain s1 s2 result
+}
+
+test tlsIO-11.7 {server with several clients} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set socket10_9_test_server [mtls::socket \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+            -server accept 8836]
+        proc accept {s a p} {
+            fconfigure $s -buffering line
+            fileevent $s readable [list echo $s]
+        }
+        proc echo {s} {
+            set l [gets $s]
+            if {[eof $s]} {
+                close $s
+            } else {
+                puts $s $l
+            }
+        }
+    }
+    set s1 [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIP 8836]
+    fconfigure $s1 -buffering line
+    set s2 [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIP 8836]
+    fconfigure $s2 -buffering line
+    set s3 [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIP 8836]
+    fconfigure $s3 -buffering line
+    for {set i 0} {$i < 100} {incr i} {
+        puts $s1 hello,tlsIO-11.7,s1
+        gets $s1
+        puts $s2 hello,tlsIO-11.7,s2
+        gets $s2
+        puts $s3 hello,tlsIO-11.7,s3
+        gets $s3
+    }
+    close $s1
+    close $s2
+    close $s3
+    sendCommand {close $socket10_9_test_server}
+    set i
+} -result 100 -cleanup {
+    catch { close $s1 }
+    catch { close $s2 }
+    catch { close $s3 }
+    unset -nocomplain s1 s2 s3 i
+}
+
+test tlsIO-11.8 {client with several servers} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        mtls::init -certfile $serverCert -cafile $caCert -keyfile $serverKey
+        set s1 [mtls::socket -server "accept 4003" 4003]
+        set s2 [mtls::socket -server "accept 4004" 4004]
+        set s3 [mtls::socket -server "accept 4005" 4005]
+        proc handshake {s mp} {
+            if {[eof $s]} {
+                close $s
+            } elseif {[catch {mtls::handshake $s} result]} {
+                # Some errors are normal.
+            } elseif {$result == 1} {
+                # Handshake complete
+                fileevent $s readable ""
+                puts $s $mp
+                close $s
+            }
+        }
+        proc accept {mp s a p} {
+            # These have to accept non-blocking, because the handshaking
+            # order isn't deterministic
+            fconfigure $s -blocking 0 -buffering line
+            fileevent $s readable [list handshake $s $mp]
+        }
+    }
+    mtls::init -certfile $clientCert -cafile $caCert -keyfile $clientKey
+    set s1 [mtls::socket $remoteServerIP 4003]
+    set s2 [mtls::socket $remoteServerIP 4004]
+    set s3 [mtls::socket $remoteServerIP 4005]
+    set l ""
+    lappend l [gets $s1] [gets $s1] [eof $s1] [gets $s2] [gets $s2] [eof $s2] \
+        [gets $s3] [gets $s3] [eof $s3]
+    close $s1
+    close $s2
+    close $s3
+    sendCommand {
+        close $s1
+        close $s2
+        close $s3
+    }
+    set l
+} -result {4003 {} 1 4004 {} 1 4005 {} 1} -cleanup {
+    catch { close $s1 }
+    catch { close $s2 }
+    catch { close $s3 }
+    unset -nocomplain s1 s2 s3 l
+    mtls::init
+}
+
+test tlsIO-11.9 {accept callback error} -constraints { client server } -body {
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8836]
+    proc accept {s a p} {expr 10 / 0}
+    proc bgerror args {
+        global x
+        set x $args
+    }
+    sendCertValues
+    if {[catch {sendCommand {
+            set peername [fconfigure $callerSocket -peername]
+            set s [mtls::socket \
+                    -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+                    [lindex $peername 0] 8836]
+            close $s
+             }} msg]} {
+        close $s
+        error $msg
+    }
+    set timer [after 2000 [list set x timeout]]
+    vwait x
+    after cancel $timer
+    close $s
+    set x
+} -result {{divide by zero}} -cleanup {
+    catch { close $s }
+    unset -nocomplain s timer x
+    rename bgerror {}
+    rename accept {}
+}
+
+test tlsIO-11.10 {testing socket specific options} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set socket10_12_test_server [mtls::socket \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+            -server accept 8836]
+        proc accept {s a p} {close $s}
+    }
+    set s [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        $remoteServerIP 8836]
+    set p [fconfigure $s -peername]
+    set n [fconfigure $s -sockname]
+    set l ""
+    lappend l [lindex $p 2] [llength $p] [llength $p]
+    close $s
+    sendCommand {close $socket10_12_test_server}
+    set l
+} -result {8836 3 3} -cleanup {
+    catch { close $s }
+    unset -nocomplain s p n l
+}
+
+
+# TODO: investigate this test failure on Windows. Perhaps reading the event
+# queue should be optimized.
+test tlsIO-11.11 {testing spurious events} -constraints { client server unixOnly } -body {
+    # remote equivalent of 9.1
+    sendCertValues
+    sendCommand {
+        set socket_test_server [mtls::socket -server accept \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey 8836]
+        proc handshake {s} {
+            if {[eof $s]} {
+                close $s
+            } elseif {[catch {mtls::handshake $s} result]} {
+                # Some errors are normal.
+            } elseif {$result == 1} {
+                # Handshake complete
+                fileevent $s writable ""
+                after 100 [list writesome $s]
+            }
+        }
+        proc accept {s a p} {
+            fconfigure $s -translation "auto lf"
+            fileevent $s writable [list handshake $s]
+        }
+        proc writesome {s} {
+            for {set i 0} {$i < 100} {incr i} {
+                puts $s "line $i from remote server"
+            }
+            close $s
+        }
+    }
+    set len 0
+    set spurious 0
+    set done 0
+    proc readlittle {s} {
+        global spurious done len
+        set l [read $s 1]
+        if {[string length $l] == 0} {
+            if {![eof $s]} {
+                incr spurious
+            } else {
+                close $s
+                set done 1
+            }
+        } else {
+            incr len [string length $l]
+        }
+    }
+    set c [mtls::socket \
+            -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+            $remoteServerIP 8836]
+    # Get the buffering corrected
+    fconfigure $c -buffering line
+    # Put a byte into the client pipe to trigger TLS handshaking
+    puts $c a
+    fileevent $c readable [list readlittle $c]
+    set timer [after 40000 [list set done timeout]]
+    vwait done
+    after cancel $timer
+    sendCommand {close $socket_test_server}
+    list $spurious $len
+} -result {0 2690} -cleanup {
+    catch { close $c }
+    unset -nocomplain len spurious done c timer
+    rename readlittle {}
+}
+
+test tlsIO-11.13 {testing async write, async flush, async close} -constraints { client server } -body {
+    sendCertValues
+    sendCommand {
+        set firstblock [string repeat a 31]
+        set secondblock [string repeat b 65535]
+        set l [mtls::socket \
+            -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+            -server accept 8845]
+        proc accept {s a p} {
+            mtls::handshake $s
+            fconfigure $s -blocking 0 -translation lf -buffersize 16384 \
+                -buffering line
+            fileevent $s readable "readable $s"
+        }
+        proc readable {s} {
+            set l [gets $s]
+            fileevent $s readable {}
+            after 1000 respond $s
+        }
+        proc respond {s} {
+            global firstblock
+            puts -nonewline $s $firstblock
+            after 1000 writedata $s
+        }
+        proc writedata {s} {
+            global secondblock
+            puts -nonewline $s $secondblock
+            close $s
+        }
+    }
+    proc readit {s} {
+        global count done
+        set l [read $s]
+        incr count [string length $l]
+        if {[eof $s]} {
+            close $s
+            set done 1
+        }
+    }
+    set s [mtls::socket \
+        -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        $remoteServerIP 8845]
+    fconfigure $s -blocking 0 -translation lf -buffering line
+    set count 0
+    puts $s hello
+    fileevent $s readable "readit $s"
+    set timer [after 10000 "set done timed_out"]
+    vwait done
+    after cancel $timer
+    sendCommand {close $l}
+    set count
+} -result 65566 -cleanup {
+    catch { close $s }
+    unset -nocomplain s count timer done l
+}
+
+proc getdata {type file} {
+    # Read handler on the accepted socket.
+    global x
+    global failed
+    set status [catch {read $file} data]
+    if {$status != 0} {
+        set x "read failed, error was $data"
+        catch { close $file }
+    } elseif {[string compare {} $data]} {
+    } elseif {[fblocked $file]} {
+    } elseif {[eof $file]} {
+        if {$failed} {
+            set x "$type socket was inherited"
+        } else {
+            set x "$type socket was not inherited"
+        }
+        catch { close $file }
+    } else {
+        set x {impossible case}
+        catch { close $file }
+    }
+    return
+}
+
+test tlsIO-14.1 {test mtls::unimport} -body {
+    mtls::unimport
+} -returnCodes error -result {wrong # args: should be "mtls::unimport channel"}
+
+test tlsIO-14.2 {test mtls::unimport} -body {
+    mtls::unimport foo bar
+} -returnCodes error -result {wrong # args: should be "mtls::unimport channel"}
+
+test tlsIO-14.3 {test mtls::unimport} -body {
+    mtls::unimport bogus
+} -returnCodes error -result {can not find channel named "bogus"}
+
+test tlsIO-14.4 {test mtls::unimport} -body {
+    mtls::unimport stdin
+    # stdin can take different names as the "top" channel
+} -returnCodes error -match glob -result {bad channel "*": not a TLS channel}
+
+test tlsIO-14.5 {test tls::unimport} -constraints { client server } -body {
+    set len 0
+    set spurious 0
+    set done 0
+    proc readlittle {s} {
+        global spurious done len
+        set l [read $s 1]
+        if {[string length $l] == 0} {
+            if {![eof $s]} {
+                incr spurious
+            } else {
+                close $s
+                set done 1
+            }
+        } else {
+            incr len [string length $l]
+        }
+    }
+    proc accept {s a p} {
+        fconfigure $s -blocking 0
+        fileevent $s readable [list do_handshake $s readable readlittle \
+            -buffering none]
+    }
+    set s [mtls::socket -certfile $serverCert -cafile $caCert -keyfile $serverKey \
+        -server accept 8831]
+    set c [mtls::socket -certfile $clientCert -cafile $caCert -keyfile $clientKey \
+        localhost 8831]
+    # only the client gets tls::import
+    set res [mtls::unimport $c]
+    list $res [catch {close $c} err] $err \
+        [catch {close $s} err] $err
+} -result {{} 0 {} 0 {}} -cleanup {
+    catch { close $s }
+    catch { close $c }
+    unset -nocomplain len spurious done s c res
+    rename readlittle {}
+    rename accept {}
+}
+
+test tls-bug58-1.0 {test protocol negotiation failure} -constraints { client server } -body {
+    # Following code is based on what was reported in bug #58. Prior
+    # to fix the program would crash with a segfault.
+    proc Accept {sock args} {
+        fconfigure $sock -blocking 0
+        fileevent $sock readable [list Handshake $sock]
+    }
+    proc Handshake {sock} {
+        catch { mtls::handshake $sock } msg
+        close $sock
+        set ::done $msg
+    }
+    # NOTE: when doing an in-process client/server test, both sides need
+    # to be non-blocking for the TLS handshake
+
+    # Server - Only accept TLS 1.2
+    set s [mtls::socket \
+        -certfile $serverCert -cafile $caCert -keyfile $serverKey -request 0 \
+        -require 0 -ssl2 0 -ssl3 0 -tls1 0 -tls1.1 0 -tls1.2 1 -tls1.3 0 \
+        -server Accept 8831]
+    # Client - Only propose TLS1.3
+    set c [mtls::socket -async -cafile $caCert -request 0 -require 0 \
+        -ssl2 0 -ssl3 0 -tls1 0 -tls1.1 0 -tls1.2 0 -tls1.3 1 localhost 8831]
+    fconfigure $c -blocking 0
+    puts $c a ; flush $c
+    after 5000 [list set ::done timeout]
+    vwait ::done
+    set ::done
+} -result {Handshake failed. SSL backend: SSL - The handshake negotiation failed} -cleanup {
+    catch { close $s }
+    catch { close $c }
+    unset -nocomplain s c done
+    rename Accept {}
+    rename Handshake {}
+}
+
+if { [info exists ::commandSocket] && [string match sock* $::commandSocket] == 1 } {
+   puts $::commandSocket exit
+   flush $::commandSocket
+   # Wait for clean exit from child process
+   while { ![eof $::commandSocket] } {
+       gets $::commandSocket
+   }
+}
+catch { close $::commandSocket }
+catch { close $::remoteProcChan }
+
+# cleanup
+cleanupTests
+return

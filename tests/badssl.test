@@ -1,0 +1,151 @@
+# Copyright (c) 2024 Konstantin Kushnir <chpock@gmail.com>
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+# These test cases are similar to those in the tlsIO.test file
+# in the tcltls distribution.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require mtls
+package require http
+
+::http::register https 443 ::mtls::socket
+
+source [file join [testsDirectory] helper.tcl]
+
+#::mtls::debug trace trace
+
+set results [dict create {*}{
+    mbedtls {
+        mtls-badssl-1.1  { error {Handshake failed. SSL backend: SSL - The requested feature is not available} }
+        mtls-badssl-1.2  { error {Handshake failed. SSL backend: SSL - The requested feature is not available} }
+        mtls-badssl-1.3  { error {Handshake failed. SSL backend: SSL - A fatal alert message was received from our peer} }
+        mtls-badssl-1.4  { error {*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badssl-1.5  { ok    {HTTP/1.1 200 OK:cbc.badssl.com} }
+        mtls-badssl-1.6  { ok    {HTTP/1.1 400 Bad Request:400 No required SSL certificate was sent} }
+        mtls-badssl-1.7  { ok    {HTTP/1.1 400 Bad Request:400 No required SSL certificate was sent} }
+        mtls-badssl-1.8  { ok    {HTTP/1.1 200 OK:dh-composite.badssl.com} }
+        mtls-badssl-1.9  { ok    {HTTP/1.1 200 OK:dh-small-subgroup.badssl.com} }
+        mtls-badssl-1.10 { error {*A field in a message was incorrect or inconsistent with other fields*} }
+        mtls-badssl-1.11 { error {*A field in a message was incorrect or inconsistent with other fields*} }
+        mtls-badssl-1.12 { ok    {HTTP/1.1 200 OK:dh1024.badssl.com} }
+        mtls-badssl-1.13 { ok    {HTTP/1.1 200 OK:dh2048.badssl.com} }
+        mtls-badssl-1.14 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.15 { ok    {HTTP/1.1 200 OK:ecc256.badssl.com} }
+        mtls-badssl-1.16 { ok    {HTTP/1.1 200 OK:ecc384.badssl.com} }
+        mtls-badssl-1.17 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.18 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.19 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.20 { ok    {HTTP/1.1 200 OK:hsts.badssl.com} }
+        mtls-badssl-1.21 { ok    {HTTP/1.1 200 OK:https-everywhere.badssl.com} }
+        mtls-badssl-1.22 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.23 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.24 { ok    {HTTP/1.1 200 OK:long-extended-subdomain-name-containing-many-letters-and-dashes.badssl.com} }
+        mtls-badssl-1.25 { ok    {HTTP/1.1 200 OK:longextendedsubdomainnamewithoutdashesinordertotestwordwrapping.badssl.com} }
+        mtls-badssl-1.26 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.27 { error {*SSL backend: Certificate verification failed*} }
+        mtls-badssl-1.28 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.29 { error {*SSL backend: Certificate verification failed*} }
+        mtls-badssl-1.30 { error {*A fatal alert message was received from our peer*} }
+        mtls-badssl-1.31 { ok    {HTTP/1.1 200 OK:pinning-test.badssl.com} }
+        mtls-badssl-1.32 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.33 { ok    {HTTP/1.1 200 OK:preloaded-hsts.badssl.com} }
+        mtls-badssl-1.34 { error {*A fatal alert message was received from our peer*} }
+        mtls-badssl-1.35 { error {*A fatal alert message was received from our peer*} }
+        mtls-badssl-1.36 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.37 { ok    {HTTP/1.1 200 OK:rsa2048.badssl.com} }
+        mtls-badssl-1.38 { ok    {HTTP/1.1 200 OK:rsa4096.badssl.com} }
+        mtls-badssl-1.39 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.40 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.41 { error {*The certificate is signed with an unacceptable hash*} }
+        mtls-badssl-1.42 { error {*The certificate is signed with an unacceptable hash*} }
+        mtls-badssl-1.43 { error {*The certificate is signed with an unacceptable hash*} }
+        mtls-badssl-1.44 { ok    {HTTP/1.1 200 OK:sha256.badssl.com} }
+        mtls-badssl-1.45 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.46 { error {*The certificate validity has expired*} }
+        mtls-badssl-1.47 { ok    {HTTP/1.1 200 OK:static-rsa.badssl.com} }
+        mtls-badssl-1.48 { error {*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badssl-1.49 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.50 { error {*Handshake protocol not within min/max boundaries*} }
+        mtls-badssl-1.51 { error {*Handshake protocol not within min/max boundaries*} }
+        mtls-badssl-1.52 { ok    {HTTP/1.1 200 OK:tls-v1-2.badssl.com} }
+        mtls-badssl-1.53 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.54 { ok    {HTTP/1.1 200 OK:upgrade.badssl.com} }
+        mtls-badssl-1.55 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.56 { error {*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badssl-1.57 { ok    {HTTP/1.1 200 OK:mozilla-modern.badssl.com} }
+    }
+    mbedtls-windows {
+        mtls-badssl-1.28 { ok    {HTTP/1.1 200 OK:no-sct.badssl.com} }
+    }
+    mbedtls-mac {
+        mtls-badssl-1.23 { error {*The certificate validity has expired*} }
+    }
+}]
+
+{*}[test_request mtls-badssl-1.1 1000-sans.badssl.com]
+{*}[test_request mtls-badssl-1.2 10000-sans.badssl.com]
+{*}[test_request mtls-badssl-1.3 3des.badssl.com]
+{*}[test_request mtls-badssl-1.4 captive-portal.badssl.com]
+{*}[test_request mtls-badssl-1.5 cbc.badssl.com]
+{*}[test_request mtls-badssl-1.6 client-cert-missing.badssl.com]
+{*}[test_request mtls-badssl-1.7 client.badssl.com]
+{*}[test_request mtls-badssl-1.8 dh-composite.badssl.com]
+{*}[test_request mtls-badssl-1.9 dh-small-subgroup.badssl.com]
+{*}[test_request mtls-badssl-1.10 dh480.badssl.com]
+{*}[test_request mtls-badssl-1.11 dh512.badssl.com]
+{*}[test_request mtls-badssl-1.12 dh1024.badssl.com]
+{*}[test_request mtls-badssl-1.13 dh2048.badssl.com]
+{*}[test_request mtls-badssl-1.14 dsdtestprovider.badssl.com]
+{*}[test_request mtls-badssl-1.15 ecc256.badssl.com]
+{*}[test_request mtls-badssl-1.16 ecc384.badssl.com]
+{*}[test_request mtls-badssl-1.17 edellroot.badssl.com]
+{*}[test_request mtls-badssl-1.18 expired.badssl.com]
+{*}[test_request mtls-badssl-1.19 extended-validation.badssl.com]
+{*}[test_request mtls-badssl-1.20 hsts.badssl.com]
+{*}[test_request mtls-badssl-1.21 https-everywhere.badssl.com]
+{*}[test_request mtls-badssl-1.22 incomplete-chain.badssl.com]
+{*}[test_request mtls-badssl-1.23 invalid-expected-sct.badssl.com]
+{*}[test_request mtls-badssl-1.24 long-extended-subdomain-name-containing-many-letters-and-dashes.badssl.com]
+{*}[test_request mtls-badssl-1.25 longextendedsubdomainnamewithoutdashesinordertotestwordwrapping.badssl.com]
+{*}[test_request mtls-badssl-1.26 mitm-software.badssl.com]
+{*}[test_request mtls-badssl-1.27 no-common-name.badssl.com]
+{*}[test_request mtls-badssl-1.28 no-sct.badssl.com]
+{*}[test_request mtls-badssl-1.29 no-subject.badssl.com]
+{*}[test_request mtls-badssl-1.30 null.badssl.com]
+{*}[test_request mtls-badssl-1.31 pinning-test.badssl.com]
+{*}[test_request mtls-badssl-1.32 preact-cli.badssl.com]
+{*}[test_request mtls-badssl-1.33 preloaded-hsts.badssl.com]
+{*}[test_request mtls-badssl-1.34 rc4-md5.badssl.com]
+{*}[test_request mtls-badssl-1.35 rc4.badssl.com]
+{*}[test_request mtls-badssl-1.36 revoked.badssl.com]
+{*}[test_request mtls-badssl-1.37 rsa2048.badssl.com]
+{*}[test_request mtls-badssl-1.38 rsa4096.badssl.com]
+{*}[test_request mtls-badssl-1.39 rsa8192.badssl.com]
+{*}[test_request mtls-badssl-1.40 self-signed.badssl.com]
+{*}[test_request mtls-badssl-1.41 sha1-2016.badssl.com]
+{*}[test_request mtls-badssl-1.42 sha1-2017.badssl.com]
+{*}[test_request mtls-badssl-1.43 sha1-intermediate.badssl.com]
+{*}[test_request mtls-badssl-1.44 sha256.badssl.com]
+{*}[test_request mtls-badssl-1.45 sha384.badssl.com]
+{*}[test_request mtls-badssl-1.46 sha512.badssl.com]
+{*}[test_request mtls-badssl-1.47 static-rsa.badssl.com]
+{*}[test_request mtls-badssl-1.48 subdomain.preloaded-hsts.badssl.com]
+{*}[test_request mtls-badssl-1.49 superfish.badssl.com]
+{*}[test_request mtls-badssl-1.50 tls-v1-0.badssl.com:1010]
+{*}[test_request mtls-badssl-1.51 tls-v1-1.badssl.com:1011]
+{*}[test_request mtls-badssl-1.52 tls-v1-2.badssl.com:1012]
+{*}[test_request mtls-badssl-1.53 untrusted-root.badssl.com]
+{*}[test_request mtls-badssl-1.54 upgrade.badssl.com]
+{*}[test_request mtls-badssl-1.55 webpack-dev-server.badssl.com]
+{*}[test_request mtls-badssl-1.56 wrong.host.badssl.com]
+{*}[test_request mtls-badssl-1.57 mozilla-modern.badssl.com]
+
+# cleanup
+cleanupTests
+return

@@ -1,0 +1,6 @@
+[submodule "tclconfig"]
+	path = tclconfig
+	url = https://github.com/tcltk/tclconfig
+[submodule "mbedtls"]
+	path = mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

@@ -1,0 +1,64 @@
+# Copyright (c) 2024 Konstantin Kushnir <chpock@gmail.com>
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require mtls
+
+source [file join [testsDirectory] helper.tcl]
+
+test mtls-basic-1.1 { check that mtls::import preserves options } -constraints client -body {
+    set s1 [socket google.com 443]
+    set opts1 [chan configure $s1]
+    set s2 [::mtls::import $s1]
+    set opts2 [chan configure $s2]
+    close $s2
+    set res [list]
+    foreach opt [lsort -unique [concat [dict keys $opts1] [dict keys $opts2]]] {
+        if { ![dict exists $opts1 $opt] } {
+            lappend res "opt\[$opt\]: doesn't exist in \$opts1"
+        } elseif { ![dict exists $opts2 $opt] } {
+            lappend res "opt\[$opt\]: doesn't exist in \$opts2"
+        } elseif { [dict get $opts1 $opt] != [dict get $opts2 $opt] } {
+            lappend res "opt\[$opt\]: [dict get $opts1 $opt] != [dict get $opts2 $opt]"
+        }
+    }
+    join $res \n
+} -result "" -cleanup {
+   catch { close $s2 }
+   catch { close $s1 }
+   unset -nocomplain s1 s2 opts1 opts2 res opt
+}
+
+test mtls-basic-1.2 { check that mtls::import preserves options } -constraints client -body {
+    set s1 [socket google.com 443]
+    chan configure $s1 -blocking 0 -buffering none -buffersize 12345 -encoding binary -eofchar Z -translation binary
+    set opts1 [chan configure $s1]
+    set s2 [::mtls::import $s1]
+    set opts2 [chan configure $s2]
+    close $s2
+    set res [list]
+    foreach opt [lsort -unique [concat [dict keys $opts1] [dict keys $opts2]]] {
+        if { ![dict exists $opts1 $opt] } {
+            lappend res "opt\[$opt\]: doesn't exist in \$opts1"
+        } elseif { ![dict exists $opts2 $opt] } {
+            lappend res "opt\[$opt\]: doesn't exist in \$opts2"
+        } elseif { [dict get $opts1 $opt] != [dict get $opts2 $opt] } {
+            lappend res "opt\[$opt\]: [dict get $opts1 $opt] != [dict get $opts2 $opt]"
+        }
+    }
+    join $res \n
+} -result "" -cleanup {
+   catch { close $s2 }
+   catch { close $s1 }
+   unset -nocomplain s1 s2 opts1 opts2 res opt
+}
+
+# cleanup
+cleanupTests
+return
