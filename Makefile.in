@@ -315,6 +315,9 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macos
 
 mbedtls/library/lib%.a:
 	[ -d mbedtls ] || { mkdir -p mbedtls && cp -r "$(srcdir)/mbedtls"/* mbedtls; }
+# Do not depend on perl/python, this leads to rust dependencies. python developeds are terrible.
+# See: https://github.com/Mbed-TLS/mbedtls/issues/6596
+	cp -fr "$(srcdir)/mbedtls-extra"/* mbedtls
 	$(MAKE) -C mbedtls lib CFLAGS='-O2 -fPIC @MBEDTLS_CFLAGS@' CC="$(CC)" @MBEDTLS_MAKEFLAGS@ PYTHON=python3
 
 tclmtls.@OBJEXT@: mtlsUuid.h
