@@ -310,6 +310,8 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 
 VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macosx
 
+srcdir_abs := $(shell cd "$(srcdir)" && pwd)
+
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
@@ -368,9 +370,8 @@ dist: dist-clean $(srcdir)/manifest.uuid
 	# Extension files
 	$(DIST_INSTALL_DATA) \
 	    $(srcdir)/ChangeLog \
-	    $(srcdir)/README.sha \
 	    $(srcdir)/license.terms \
-	    $(srcdir)/README \
+	    $(srcdir)/README.md \
 	    $(srcdir)/pkgIndex.tcl.in \
 	    $(DIST_DIR)/
 
