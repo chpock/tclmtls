@@ -12,11 +12,12 @@ jobs:
       matrix:
         compiler:
           - "gcc"
-          - "g++"
           - "clang"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Setup Environment (compiler=${{ matrix.compiler }})
         run: |
           sudo apt-get install tcl8.6-dev

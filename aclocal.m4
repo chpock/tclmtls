@@ -183,7 +183,7 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
         mtlsbackend="mbedtls"
 
         TCLMTLS_MBEDTLS_DEFINE([MBEDTLS_USER_CONFIG_FILE=\\\"backend-mbedtls-config.h\\\"])
-        MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -I\$(srcdir)/generic"
+        MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -I\$(srcdir_abs)/generic"
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -fno-asynchronous-unwind-tables"
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -ffunction-sections -fdata-sections"
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -fvisibility=hidden"
