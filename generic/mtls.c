@@ -118,6 +118,8 @@ const char *mtls_ctx_error_get(mtls_ctx *ctx) {
     return ctx->error[MTLS_CTX_ERROR];
 }
 
+#if MTLS_DEBUG_LEVEL >= 1
+
 int __debug_nested = -1;
 
 void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp,
@@ -254,6 +256,8 @@ void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp,
     Tcl_Release(interp);
     return;
 }
+
+#endif /* MTLS_DEBUG_LEVEL */
 
 int mtls_bio_write(void *bio, const unsigned char *buf, size_t blen) {
     mtls_ctx *ctx = (mtls_ctx *)bio;

@@ -56,8 +56,10 @@
 
 #if MTLS_DEBUG_LEVEL >= 1
 #define ERR(...) _MSG(ERR, __VA_ARGS__)
+#define ENTER(func, interp) _ENTER(func, interp)
 #else
 #define ERR(...) {}
+#define ENTER(func, interp) {}
 #endif
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
@@ -93,6 +95,7 @@ const char *mtls_protocol_strings[] = {
     "ssl2", "ssl3", "tls1", "tls1.1", "tls1.2", "tls1.3", NULL
 };
 
+#if MTLS_DEBUG_LEVEL >= 1
 const char *__debug[] = {
     /*  0 - func name             */ "mtls_",
     /*  1 -                       */ "::mtls::debug_level",
@@ -127,11 +130,13 @@ const char *__debug[] = {
     /* 30 - return - EINVAL       */ "EINVAL",
     /* 31 - return - EAGAIN       */ "EAGAIN"
 };
+#endif /* MTLS_DEBUG_LEVEL */
 
 #else
+#if MTLS_DEBUG_LEVEL >= 1
 extern const char *__debug[];
+#endif /* MTLS_DEBUG_LEVEL */
 extern const char *mtls_protocol_strings[];
-extern const char *mtls_protocol_strings2[];
 #endif /* _TCLMTLS_H */
 
 #define MTLS_LOG_LEVEL_NON 0
@@ -155,7 +160,7 @@ extern const char *mtls_protocol_strings2[];
     mtls_debug(MTLS_LOG_LEVEL_##l, __current_debug_level, __current_interp, __VA_ARGS__)
 
 
-#define ENTER(func, interp) \
+#define _ENTER(func, interp) \
     int __current_debug_level = 0; \
     Tcl_Interp *__current_interp = ((interp) == NULL || Tcl_InterpDeleted((interp))) ? NULL : (interp); \
     if (__current_interp != NULL) { \
@@ -182,7 +187,7 @@ extern const char *mtls_protocol_strings2[];
 #define SET_RESULT(t, ...) __XCONCAT(SET_RESULT, t)(__VA_ARGS__)
 
 #define SET_RESULT_OBJECT(v) \
-    Tcl_SetObjResult(__current_interp, (v))
+    Tcl_SetObjResult(interp, (v))
 
 #define SET_RESULT_INT(v) SET_RESULT_OBJECT(Tcl_NewIntObj(v))
 
@@ -191,15 +196,13 @@ extern const char *mtls_protocol_strings2[];
 #define SET_RESULT_FORMAT(...) SET_RESULT_OBJECT(Tcl_ObjPrintf(__VA_ARGS__))
 
 #define APPEND_RESULT(...) \
-    Tcl_AppendResult(__current_interp, __VA_ARGS__, (char *)NULL)
+    Tcl_AppendResult(interp, __VA_ARGS__, (char *)NULL)
 
 #define SET_ERROR(...) \
-    Tcl_SetErrorCode(__current_interp, "MTLS", __VA_ARGS__, NULL)
+    Tcl_SetErrorCode(interp, "MTLS", __VA_ARGS__, NULL)
 
 #define RETURN_0() \
     INF(__debug[10], __debug[0], __current_func); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return
 
 #define RETURN_1(r) __XCONCAT(RETURN_1, r)
@@ -216,40 +219,28 @@ extern const char *mtls_protocol_strings2[];
 
 #define RETURN_1_POSIX_EINVAL \
     INF(__debug[11], __debug[0], __current_func, __debug[30]); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return EINVAL
 
 #define RETURN_N(t, ...) __XCONCAT(RETURN_N, t)(__VA_ARGS__)
 
 #define RETURN_N_PTR(v) \
     INF(__debug[13], __debug[0], __current_func, (v)); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return (v)
 
 #define RETURN_N_INT(v) \
     INF(__debug[12], __debug[0], __current_func, (v)); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return (v)
 
 #define RETURN_N_TCL_OK() \
     INF(__debug[11], __debug[0], __current_func, __debug[20]); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return TCL_OK
 
 #define RETURN_N_TCL_ERROR() \
     INF(__debug[11], __debug[0], __current_func, __debug[21]); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return TCL_ERROR
 
 #define RETURN_N_TCL_CONTINUE() \
     INF(__debug[11], __debug[0], __current_func, __debug[22]); \
-    UNUSED(__current_interp); \
-    UNUSED(__current_func); \
     return TCL_CONTINUE
 
 #define RETURN(...) __EVAL_CONCAT(RETURN, _NARGS(__VA_ARGS__))(__VA_ARGS__)

@@ -22,6 +22,7 @@ static int mtls_CloseProc(ClientData instanceData, Tcl_Interp *interp) {
     Tcl_EventuallyFree((ClientData)ctx, mtls_ctx_free);
 
     RETURN(0);
+    UNUSED(interp);
 }
 
 static int mtls_Close2Proc(ClientData instanceData, Tcl_Interp *interp,

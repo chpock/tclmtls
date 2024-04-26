@@ -33,6 +33,7 @@ static void mtls_set_config(Tcl_Interp *interp, mtls_config *conf,
         TRC("unset config element %s", mtls_config_strings[name]);
     }
     RETURN();
+    UNUSED(interp);
 }
 
 static void mtls_init_config(Tcl_Interp *interp, mtls_config *conf) {
@@ -41,6 +42,7 @@ static void mtls_init_config(Tcl_Interp *interp, mtls_config *conf) {
         (*conf)[i] = NULL;
     }
     RETURN();
+    UNUSED(interp);
 }
 
 static void mtls_import_config(Tcl_Interp *interp, mtls_config *sconf,
@@ -110,6 +112,7 @@ void mtls_free_config(Tcl_Interp *interp, mtls_config *conf) {
         }
     }
     RETURN();
+    UNUSED(interp);
 }
 
 #define _PARSE_PARAM(o) \
@@ -391,7 +394,9 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
 
     int level = 0;
     int backend_level = 0;
+#if MTLS_DEBUG_LEVEL >= 1
     Tcl_Obj *obj;
+#endif /* MTLS_DEBUG_LEVEL */
 
     static const char *const levels[] = {
         "none", "error", "warning", "info", "debug", "trace", NULL
@@ -430,12 +435,15 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
             level += backend_level << 3;
         }
 
+#if MTLS_DEBUG_LEVEL >= 1
         // Set the level to the Tcl variable
         Tcl_SetVar2Ex(interp, __debug[1], NULL, Tcl_NewIntObj(level),
             TCL_GLOBAL_ONLY);
+#endif /* MTLS_DEBUG_LEVEL */
 
     } else {
 
+#if MTLS_DEBUG_LEVEL >= 1
         // We have no args. Try to get the level from the Tcl variable.
         obj = Tcl_GetVar2Ex(interp, __debug[1], NULL, TCL_GLOBAL_ONLY);
         if (obj != NULL) {
@@ -447,6 +455,7 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
                 Tcl_ResetResult(interp);
             }
         }
+#endif /* MTLS_DEBUG_LEVEL */
 
     }
 

@@ -304,6 +304,7 @@ static int mtls_backend_bio_error_callback(mtls_backend_ctx *ctx,
     UNUSED(eof);
     UNUSED(want);
     RETURN(INT, ret);
+    UNUSED(ctx);
 }
 
 int mtls_backend_ctx_init(
@@ -947,6 +948,7 @@ const char *mtls_backend_get_version(Tcl_Interp *interp)
 {
     ENTER(backend_get_version, interp);
     RETURN(PTR, mtls_backend_version);
+    UNUSED(interp);
 }
 
 int mtls_backend_get_ciphers(Tcl_Interp *interp, mtls_protocol protocol,
@@ -1074,4 +1076,5 @@ int mtls_backend_free(Tcl_Interp *interp) {
 #endif /* TCL_THREADS */
 
     RETURN(OK);
+    UNUSED(interp);
 }

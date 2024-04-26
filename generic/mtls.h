@@ -59,7 +59,9 @@ typedef struct mtls_ctx {
 #define MTLS_CTX_FLAG_ASYNC    (1<<0) /* non-blocking mode */
 #define MTLS_CTX_FLAG_CLOSED   (1<<1) /* contex is closed */
 
+#if MTLS_DEBUG_LEVEL >= 1
 void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp, const char *fmt, ...);
+#endif /* MTLS_DEBUG_LEVEL */
 
 int mtls_init(Tcl_Interp *interp);
 int mtls_free(Tcl_Interp *interp);
