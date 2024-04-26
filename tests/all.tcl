@@ -59,7 +59,7 @@ foreach file [lsort [::tcltest::getMatchingFiles]] {
 
 # cleanup
 puts $chan "\nTests ended at [eval $timeCmd]"
-set r $::tcltest::numTests(Failed)
+if { $::tcltest::numTests(Total) } { set r $::tcltest::numTests(Failed) } { set r 1 }
 ::tcltest::cleanupTests 1
 exit $r
 
