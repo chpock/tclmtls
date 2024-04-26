@@ -27,6 +27,14 @@
 #undef MBEDTLS_SSL_CLI_C
 #endif
 
+#if !defined(__clang__) && !defined(_MSC_VER) && defined(__GNUC__) && __GNUC__ < 5
+// Need gcc 5.0+ to compile mbedTLS with asm and -fPIC flag.
+// Otherwise, we will get "error: inconsistent operand constraints in an 'asm'",
+// something like: https://stackoverflow.com/a/28976166/1980049
+#undef MBEDTLS_HAVE_ASM
+#undef MBEDTLS_PADLOCK_C /* depends on MBEDTLS_HAVE_ASM */
+#endif
+
 #ifdef MTLS_ENABLE_SERVER
 #define MBEDTLS_SSL_SRV_C
 #else

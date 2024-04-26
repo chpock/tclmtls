@@ -781,7 +781,6 @@ enable_debug
 with_mbedtls
 with_mbedtls_include
 with_mbedtls_lib
-enable_sanitize
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1422,7 +1421,6 @@ Optional Features:
   --enable-server         enable SSL server (default: yes)
   --enable-debug=<level>  enable debug messages. Possible levels are: none,
                           error, warning, info, on (default: none)
-  --enable-sanitize       enable sanitizers (default: no)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -2470,6 +2468,8 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+
+MBEDTLS_CFLAGS="$CFLAGS"
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -8972,20 +8972,25 @@ then :
 
 else $as_nop
 
-            mtlsdebug="none"
+            if test "${CFLAGS_DEFAULT}" = "${CFLAGS_DEBUG}"; then
+                mtlsdebug="auto"
+            else
+                mtlsdebug="none"
+            fi
 
 
 fi
 
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for enabled debugging level" >&5
-printf %s "checking for enabled debugging level... " >&6; }
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for debugging level" >&5
+printf %s "checking for debugging level... " >&6; }
     if test "$mtlsdebug" = "none"; then
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $mtlsdebug" >&5
 printf "%s\n" "$mtlsdebug" >&6; }
-    elif test "$mtlsdebug" = "all"; then
+    elif test "$mtlsdebug" = "all" || test "$mtlsdebug" = "auto"; then
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $mtlsdebug" >&5
 printf "%s\n" "$mtlsdebug" >&6; }
+        mtlsdebug="all"
         printf "%s\n" "#define MTLS_DEBUG_ALL 1" >>confdefs.h
 
         LDFLAGS="$LDFLAGS -g -fno-omit-frame-pointer"
@@ -9300,6 +9305,102 @@ printf "%s\n" "yes" >&6; }
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -ffunction-sections -fdata-sections"
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -fvisibility=hidden"
 
+        # Clear CFLAGS because it contains variable names
+        _CFLAGS="$CFLAGS"
+        CFLAGS=
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for AES instruction set" >&5
+printf %s "checking for AES instruction set... " >&6; }
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+            #include <wmmintrin.h>
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+else $as_nop
+
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, adding -maes" >&5
+printf "%s\n" "no, adding -maes" >&6; }
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -maes -mpclmul"
+
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SSE4.1 instruction set" >&5
+printf %s "checking for SSE4.1 instruction set... " >&6; }
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+            #include <smmintrin.h>
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+else $as_nop
+
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, adding -msse4.1" >&5
+printf "%s\n" "no, adding -msse4.1" >&6; }
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -msse4.1"
+
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for AVX/AVX2 instruction set" >&5
+printf %s "checking for AVX/AVX2 instruction set... " >&6; }
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+            #include <immintrin.h>
+
+int
+main (void)
+{
+
+            __m256i sub2;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+else $as_nop
+
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, adding -mavx -mavx2" >&5
+printf "%s\n" "no, adding -mavx -mavx2" >&6; }
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -mavx -mavx2"
+
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
+        # Restore CFLAGS
+        CFLAGS="$_CFLAGS"
+
         if test "${TEA_PLATFORM}" = "windows" ; then
             MBEDTLS_MAKEFLAGS="WINDOWS=1"
         fi
@@ -9332,137 +9433,6 @@ printf "%s\n" "no" >&6; }
 printf "%s\n" "no" >&6; }
     fi
 
-
-
-    # Check whether --enable-sanitize was given.
-if test ${enable_sanitize+y}
-then :
-  enableval=$enable_sanitize;
-            mtlssan="$enableval"
-
-else $as_nop
-
-            mtlssan="no"
-
-
-fi
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for enabled sanitizers" >&5
-printf %s "checking for enabled sanitizers... " >&6; }
-    if test "$mtlssan" = "yes"; then
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-
-
-    PKG_CFLAGS="$PKG_CFLAGS -DPURIFY"
-
-
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=address"
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether cc supports $CFLAGS" >&5
-printf %s "checking whether cc supports $CFLAGS... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-
-else $as_nop
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-            CFLAGS="$_CFLAGS"
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=memory -fPIE -pie"
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether cc supports $CFLAGS" >&5
-printf %s "checking whether cc supports $CFLAGS... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-
-else $as_nop
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-            CFLAGS="$_CFLAGS"
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=undefined"
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether cc supports $CFLAGS" >&5
-printf %s "checking whether cc supports $CFLAGS... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-
-else $as_nop
-
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-            CFLAGS="$_CFLAGS"
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-
-    else
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-    fi
 
 
 
@@ -9659,6 +9629,42 @@ printf "%s\n" "${TCLSH_PROG}" >&6; }
 
 
 #TEA_PROG_WISH
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for correct tclsh" >&5
+printf %s "checking for correct tclsh... " >&6; }
+
+    if ! test -f "${TCLSH_PROG}" && ! command -v "${TCLSH_PROG}" >/dev/null 2>&1; then
+        if test "${TEA_PLATFORM}" = "windows"; then
+            base_name="tclsh${TCL_MAJOR_VERSION}${TCL_MINOR_VERSION}"
+            name_list="${base_name}${EXEEXT} \
+                ${base_name}s${EXEEXT} \
+                ${base_name}t${EXEEXT} \
+                ${base_name}st${EXEEXT} \
+                ${base_name}g${EXEEXT} \
+                ${base_name}gs${EXEEXT} \
+                ${base_name}gt${EXEEXT} \
+                ${base_name}gst${EXEEXT}"
+            for i in $name_list; do
+                if test -f "${TCL_BIN_DIR}/../bin/$i"; then
+                    TCLSH_PROG="`cd "${TCL_BIN_DIR}/../bin"; pwd`/$i"
+                    break
+                fi
+            done
+        fi
+        if test -f "${TCLSH_PROG}"; then
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ${TCLSH_PROG}" >&5
+printf "%s\n" "${TCLSH_PROG}" >&6; }
+
+        else
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: fail" >&5
+printf "%s\n" "fail" >&6; }
+            as_fn_error $? "ERROR: could not find tclsh binary" "$LINENO" 5
+        fi
+    else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ok" >&5
+printf "%s\n" "ok" >&6; }
+    fi
+
 
 #--------------------------------------------------------------------
 # Setup a *Config.sh.in configuration file.
