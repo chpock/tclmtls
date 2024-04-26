@@ -27,6 +27,16 @@ if {![info exists VERBOSE]} {
     set VERBOSE 0
 }
 
+proc random_port { } {
+    set port [expr { 8828 + ([pid] % 4096) }]
+    if { [catch { ::socket -server accept $port } sock] } {
+        incr port
+    } {
+        close $sock
+    }
+    return $port
+}
+
 proc __doCommands__ {l s} {
     global callerSocket VERBOSE
 
@@ -124,7 +134,7 @@ if {![info exists serverPort]} {
     }
 }
 if {![info exists serverPort]} {
-    set serverPort 8048
+    set serverPort [random_port]
 }
 
 if {![info exists serverAddress]} {
@@ -186,7 +196,7 @@ if {[catch {set serverSocket \
     puts stderr "Server on $serverAddress:$serverPort cannot start: $msg"
 } else {
     if {$serverIsSilent != 0} {
-        puts "ready"
+        puts "$serverPort"
         flush stdout
     }
     vwait __server_wait_variable__
