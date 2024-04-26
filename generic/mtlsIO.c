@@ -16,8 +16,7 @@
 
 static int mtls_CloseProc(ClientData instanceData, Tcl_Interp *interp) {
     mtls_ctx *ctx = (mtls_ctx *)instanceData;
-    UNUSED(interp);
-    ENTER(CloseProc, ctx->interp);
+    ENTER(CloseProc, interp);
 
     mtls_ctx_close(ctx);
     Tcl_EventuallyFree((ClientData)ctx, mtls_ctx_free);
@@ -28,9 +27,7 @@ static int mtls_CloseProc(ClientData instanceData, Tcl_Interp *interp) {
 static int mtls_Close2Proc(ClientData instanceData, Tcl_Interp *interp,
     int flags)
 {
-    mtls_ctx *ctx = (mtls_ctx *)instanceData;
-    UNUSED(interp);
-    ENTER(Close2Proc, ctx->interp);
+    ENTER(Close2Proc, interp);
 
     if ((flags & (TCL_CLOSE_READ|TCL_CLOSE_WRITE)) == 0) {
         int ret = mtls_CloseProc(instanceData, interp);
@@ -205,7 +202,7 @@ static int mtls_SetOptionProc(ClientData instanceData, Tcl_Interp *interp,
 {
     mtls_ctx *ctx = (mtls_ctx *)instanceData;
     // interp in function args can be NULL
-    ENTER(SetOptionProc, ctx->interp);
+    ENTER(SetOptionProc, interp);
 
     int ret;
 

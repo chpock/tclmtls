@@ -157,14 +157,14 @@ extern const char *mtls_protocol_strings2[];
 
 #define ENTER(func, interp) \
     int __current_debug_level = 0; \
-    Tcl_Interp *__current_interp = Tcl_InterpDeleted((interp)) ? NULL : (interp); \
-    if ((interp) != NULL) { \
-        Tcl_Obj *__current_debug_level_obj = Tcl_GetVar2Ex((interp), \
+    Tcl_Interp *__current_interp = ((interp) == NULL || Tcl_InterpDeleted((interp))) ? NULL : (interp); \
+    if (__current_interp != NULL) { \
+        Tcl_Obj *__current_debug_level_obj = Tcl_GetVar2Ex(__current_interp, \
             __debug[1], NULL, TCL_GLOBAL_ONLY); \
         if (__current_debug_level_obj != NULL) { \
-            if (Tcl_GetIntFromObj((interp), __current_debug_level_obj, \
+            if (Tcl_GetIntFromObj(__current_interp, __current_debug_level_obj, \
                 &__current_debug_level) == TCL_ERROR) { \
-                    Tcl_ResetResult((interp)); \
+                    Tcl_ResetResult(__current_interp); \
             } \
         } \
     } \
