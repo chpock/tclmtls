@@ -65,7 +65,6 @@ Options that can be used for development:
 | Option  | Description |
 | ------------ | ------------ |
 | `--enable-debug=<level>` | enable debug messages. Possible levels are: none, error, warning, info, on |
-| `--enable-sanitize` | enable sanitizers |
 
 ## Usage
 

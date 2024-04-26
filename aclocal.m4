@@ -27,15 +27,20 @@ AC_DEFUN([TCLMTLS_SET_DEBUG], [
                 mtlsdebug="none"
             fi
         ], [
-            mtlsdebug="none"
+            if test "${CFLAGS_DEFAULT}" = "${CFLAGS_DEBUG}"; then
+                mtlsdebug="auto"
+            else
+                mtlsdebug="none"
+            fi
         ]
     )
 
-    AC_MSG_CHECKING([for enabled debugging level])
+    AC_MSG_CHECKING([for debugging level])
     if test "$mtlsdebug" = "none"; then
         AC_MSG_RESULT([$mtlsdebug])
-    elif test "$mtlsdebug" = "all"; then
+    elif test "$mtlsdebug" = "all" || test "$mtlsdebug" = "auto"; then
         AC_MSG_RESULT([$mtlsdebug])
+        mtlsdebug="all"
         AC_DEFINE(MTLS_DEBUG_ALL)
         LDFLAGS="$LDFLAGS -g -fno-omit-frame-pointer"
         TEA_ADD_CFLAGS([-g -fno-omit-frame-pointer])
@@ -188,6 +193,45 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -ffunction-sections -fdata-sections"
         MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -fvisibility=hidden"
 
+        # Clear CFLAGS because it contains variable names
+        _CFLAGS="$CFLAGS"
+        CFLAGS=
+
+        AC_MSG_CHECKING(for AES instruction set)
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+            #include <wmmintrin.h>
+        ]],[])],
+            [AC_MSG_RESULT(yes)], [
+                AC_MSG_RESULT([no, adding -maes])
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -maes -mpclmul"
+            ]
+        )
+
+        AC_MSG_CHECKING(for SSE4.1 instruction set)
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+            #include <smmintrin.h>
+        ]],[])],
+            [AC_MSG_RESULT(yes)], [
+                AC_MSG_RESULT([no, adding -msse4.1])
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -msse4.1"
+            ]
+        )
+
+        AC_MSG_CHECKING(for AVX/AVX2 instruction set)
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+            #include <immintrin.h>
+        ]],[[
+            __m256i sub2;
+        ]])],
+            [AC_MSG_RESULT(yes)], [
+                AC_MSG_RESULT([no, adding -mavx -mavx2])
+                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -mavx -mavx2"
+            ]
+        )
+
+        # Restore CFLAGS
+        CFLAGS="$_CFLAGS"
+
         if test "${TEA_PLATFORM}" = "windows" ; then
             MBEDTLS_MAKEFLAGS="WINDOWS=1"
         fi
@@ -269,65 +313,6 @@ AC_DEFUN([TCLMTLS_SET_LDFLAGS], [
 
 ])
 
-AC_DEFUN([TCLMTLS_CHECK_SANITIZE], [
-    AC_ARG_ENABLE(sanitize,
-        AS_HELP_STRING([--enable-sanitize],
-            [enable sanitizers (default: no)]
-        ), [
-            mtlssan="$enableval"
-        ], [
-            mtlssan="no"
-        ]
-    )
-
-    AC_MSG_CHECKING([for enabled sanitizers])
-    if test "$mtlssan" = "yes"; then
-
-        AC_MSG_RESULT([yes])
-
-        TEA_ADD_CFLAGS([-DPURIFY])
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=address"
-        AC_MSG_CHECKING([whether cc supports $CFLAGS])
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
-            AC_MSG_RESULT([yes])
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-        ],[
-            AC_MSG_RESULT([no])
-            CFLAGS="$_CFLAGS"
-        ])
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=memory -fPIE -pie"
-        AC_MSG_CHECKING([whether cc supports $CFLAGS])
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
-            AC_MSG_RESULT([yes])
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-        ],[
-            AC_MSG_RESULT([no])
-            CFLAGS="$_CFLAGS"
-        ])
-
-        _CFLAGS="$CFLAGS"
-        CFLAGS="-fsanitize=undefined"
-        AC_MSG_CHECKING([whether cc supports $CFLAGS])
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
-            AC_MSG_RESULT([yes])
-            LDFLAGS="$LDFLAGS $CFLAGS"
-            CFLAGS="$_CFLAGS $CFLAGS"
-        ],[
-            AC_MSG_RESULT([no])
-            CFLAGS="$_CFLAGS"
-        ])
-
-    else
-        AC_MSG_RESULT([no])
-    fi
-])
-
 AC_DEFUN([TCLMTLS_CHECK_CLIENT_SERVER], [
     AC_ARG_ENABLE(client,
         AS_HELP_STRING([--enable-client],
@@ -370,3 +355,35 @@ AC_DEFUN([TCLMTLS_CHECK_CLIENT_SERVER], [
     fi
 ])
 
+AC_DEFUN([TCLMTLS_PROG_TCLSH], [
+    AC_MSG_CHECKING([for correct tclsh])
+
+    if ! test -f "${TCLSH_PROG}" && ! command -v "${TCLSH_PROG}" >/dev/null 2>&1; then
+        if test "${TEA_PLATFORM}" = "windows"; then
+            base_name="tclsh${TCL_MAJOR_VERSION}${TCL_MINOR_VERSION}"
+            name_list="${base_name}${EXEEXT} \
+                ${base_name}s${EXEEXT} \
+                ${base_name}t${EXEEXT} \
+                ${base_name}st${EXEEXT} \
+                ${base_name}g${EXEEXT} \
+                ${base_name}gs${EXEEXT} \
+                ${base_name}gt${EXEEXT} \
+                ${base_name}gst${EXEEXT}"
+            for i in $name_list; do
+                if test -f "${TCL_BIN_DIR}/../bin/$i"; then
+                    TCLSH_PROG="`cd "${TCL_BIN_DIR}/../bin"; pwd`/$i"
+                    break
+                fi
+            done
+        fi
+        if test -f "${TCLSH_PROG}"; then
+            AC_MSG_RESULT([${TCLSH_PROG}])
+            AC_SUBST(TCLSH_PROG)
+        else
+            AC_MSG_RESULT([fail])
+            AC_MSG_ERROR([ERROR: could not find tclsh binary])
+        fi
+    else
+        AC_MSG_RESULT([ok])
+    fi
+])

@@ -21,6 +21,8 @@ dnl	to configure the system for the local environment.
 
 AC_INIT([mtls], [m4_esyscmd_s([cat version])])
 
+MBEDTLS_CFLAGS="$CFLAGS"
+
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
 # This will define a ${TEA_PLATFORM} variable == "unix" or "windows"
@@ -163,7 +165,6 @@ TCLMTLS_SET_DEBUG
 TCLMTLS_CHECK_MBEDTLS
 TCLMTLS_CHECK_DEFAULT_BACKEND
 
-TCLMTLS_CHECK_SANITIZE
 TCLMTLS_SET_LDFLAGS
 
 #--------------------------------------------------------------------
@@ -176,6 +177,7 @@ TCLMTLS_SET_LDFLAGS
 
 TEA_PROG_TCLSH
 #TEA_PROG_WISH
+TCLMTLS_PROG_TCLSH
 
 #--------------------------------------------------------------------
 # Setup a *Config.sh.in configuration file.

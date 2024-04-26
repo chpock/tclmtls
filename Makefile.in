@@ -135,7 +135,7 @@ TCLLIBPATH	= $(top_builddir)
 TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library`
 PKG_ENV		= @LD_LIBRARY_PATH_VAR@="$(EXTRA_PATH):$(@LD_LIBRARY_PATH_VAR@)" \
 		  PATH="$(EXTRA_PATH):$(PATH)" \
-		  TCLLIBPATH="$(TCLLIBPATH)"
+		  TCLLIBPATH="`@CYGPATH@ $(TCLLIBPATH)`"
 
 TCLSH_PROG	= @TCLSH_PROG@
 TCLSH		= $(TCLSH_ENV) $(PKG_ENV) $(TCLSH_PROG)
@@ -335,6 +335,17 @@ mtlsUuid.h: $(srcdir)/manifest.uuid
 	echo "#define SAMPLE_VERSION_UUID \\" >$@
 	cat $(srcdir)/manifest.uuid >>$@
 	echo "" >>$@
+
+ifeq ($(CFLAGS_DEFAULT),-g)
+    PACKAGE_ARCHIVE = $(PACKAGE_NAME)-debug-$(PACKAGE_VERSION)
+else
+    PACKAGE_ARCHIVE = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
+endif
+
+.PHONY: package
+package:
+	$(MAKE) install exec_prefix=./$(PACKAGE_ARCHIVE) prefix=./$(PACKAGE_ARCHIVE)
+	tar zcvf $(PACKAGE_ARCHIVE).tar.gz $(PACKAGE_ARCHIVE)
 
 #========================================================================
 # Distribution creation

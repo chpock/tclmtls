@@ -53,12 +53,13 @@ foreach file [lsort [::tcltest::getMatchingFiles]] {
     set tail [file tail $file]
     puts $chan $tail
     if {[catch {source $file} msg]} {
-	puts $chan $msg
+        puts $chan $msg
     }
 }
 
 # cleanup
 puts $chan "\nTests ended at [eval $timeCmd]"
+set r $::tcltest::numTests(Failed)
 ::tcltest::cleanupTests 1
-return
+exit $r
 
