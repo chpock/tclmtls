@@ -1027,6 +1027,15 @@ static int mtls_cmd_import(ClientData clientData, Tcl_Interp *interp,
 
         mtls_ctx *model_ctx = (mtls_ctx *)Tcl_GetChannelInstanceData(model_chan);
 
+        if (model_ctx->tcl_config == NULL) {
+            mtls_free_config(interp, conf);
+            ckfree(conf);
+            SET_RESULT(FORMAT, "bad model channel \"%s\": no config",
+                model_chan_name);
+            SET_ERROR("WRONGARGS");
+            RETURN(ERROR);
+        }
+
         base_conf = model_ctx->tcl_config;
     }
 

@@ -342,6 +342,26 @@ int mtls_bio_read(void *bio, unsigned char *buf, size_t blen) {
     RETURN(INT, read);
 }
 
+void mtls_free_config(Tcl_Interp *interp, void *conf);
+
+void mtls_ctx_interp_cleanup(ClientData clientData, Tcl_Interp *interp) {
+    mtls_ctx *ctx = (mtls_ctx *)clientData;
+
+    if (ctx->callback != NULL) {
+        Tcl_DecrRefCount(ctx->callback);
+        ctx->callback = NULL;
+    }
+
+    if (ctx->tcl_config != NULL) {
+        mtls_free_config(interp, ctx->tcl_config);
+        ckfree(ctx->tcl_config);
+        ctx->tcl_config = NULL;
+    }
+
+    ctx->backend.interp = NULL;
+    ctx->interp = NULL;
+}
+
 int mtls_ctx_init(
     mtls_ctx **pctx,
     Tcl_Interp *interp,
@@ -392,6 +412,10 @@ int mtls_ctx_init(
     for (int i = 0; i < MTLS_CTX_ERROR_SIZE; i++) {
         ctx->error[i] = NULL;
     }
+
+    // Setup the callback for deleted interpreter to correctly clear it
+    // from ctx->interp and avoid other callbacks using unavailable interp.
+    Tcl_CallWhenDeleted(interp, mtls_ctx_interp_cleanup, (ClientData) ctx);
 
     if (mtls_backend_ctx_init(
         &ctx->backend,
@@ -491,8 +515,6 @@ int mtls_ctx_close(mtls_ctx *ctx) {
     RETURN(OK);
 }
 
-void mtls_free_config(Tcl_Interp *interp, void *conf);
-
 int mtls_ctx_free(mtls_ctx *ctx) {
     ENTER(ctx_free, ctx->interp);
 
@@ -504,17 +526,14 @@ int mtls_ctx_free(mtls_ctx *ctx) {
 
         mtls_backend_ctx_free(&ctx->backend);
 
-        if (ctx->callback != NULL) {
-            Tcl_DecrRefCount(ctx->callback);
+        if (ctx->interp != NULL) {
+            Tcl_DontCallWhenDeleted(ctx->interp, mtls_ctx_interp_cleanup,
+                (ClientData) ctx);
+            mtls_ctx_interp_cleanup((ClientData) ctx, ctx->interp);
         }
 
         for (int i = 0; i < MTLS_CTX_ERROR_SIZE; i++) {
             mtls_ctx_error_free(ctx, i);
-        }
-
-        if (ctx->tcl_config != NULL) {
-            mtls_free_config(ctx->interp, ctx->tcl_config);
-            ckfree(ctx->tcl_config);
         }
 
         ckfree(ctx);
