@@ -312,6 +312,8 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macos
 
 srcdir_abs := $(shell cd "$(srcdir)" && pwd)
 
+TESTFLAGS ?= -verbose "body error start"
+
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
