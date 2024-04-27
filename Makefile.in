@@ -334,7 +334,7 @@ $(srcdir)/manifest.uuid:
 	    printf "unknown" >$(srcdir)/manifest.uuid)
 
 mtlsUuid.h: $(srcdir)/manifest.uuid
-	echo "#define SAMPLE_VERSION_UUID \\" >$@
+	echo "#define MTLS_VERSION_UUID \\" >$@
 	cat $(srcdir)/manifest.uuid >>$@
 	echo "" >>$@
 
