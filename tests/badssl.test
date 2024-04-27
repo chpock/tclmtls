@@ -44,7 +44,7 @@ set results [dict create {*}{
         mtls-badssl-1.20 { ok    {HTTP/1.1 200 OK:hsts.badssl.com} }
         mtls-badssl-1.21 { ok    {HTTP/1.1 200 OK:https-everywhere.badssl.com} }
         mtls-badssl-1.22 { error {*The certificate is not correctly signed by the trusted CA*} }
-        mtls-badssl-1.23 { error {*The certificate is not correctly signed by the trusted CA*} }
+        mtls-badssl-1.23 { error {*The certificate validity has expired*} }
         mtls-badssl-1.24 { ok    {HTTP/1.1 200 OK:long-extended-subdomain-name-containing-many-letters-and-dashes.badssl.com} }
         mtls-badssl-1.25 { ok    {HTTP/1.1 200 OK:longextendedsubdomainnamewithoutdashesinordertotestwordwrapping.badssl.com} }
         mtls-badssl-1.26 { error {*The certificate is not correctly signed by the trusted CA*} }
