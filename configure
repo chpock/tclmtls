@@ -9338,65 +9338,50 @@ printf "%s\n" "no, adding -maes" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SSE4.1 instruction set" >&5
-printf %s "checking for SSE4.1 instruction set... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+        if test "${TEA_PLATFORM}" = "unix" ; then
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for required -lrt" >&5
+printf %s "checking for required -lrt... " >&6; }
+            cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-            #include <smmintrin.h>
+                #include <time.h>
 
 int
 main (void)
 {
 
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-else $as_nop
-
-                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, adding -msse4.1" >&5
-printf "%s\n" "no, adding -msse4.1" >&6; }
-                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -msse4.1"
-
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for AVX/AVX2 instruction set" >&5
-printf %s "checking for AVX/AVX2 instruction set... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-            #include <immintrin.h>
-
-int
-main (void)
-{
-
-            __m256i sub2;
+                struct timespec t;
+                clock_gettime(0, &t);
 
   ;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
 else $as_nop
 
-                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no, adding -mavx -mavx2" >&5
-printf "%s\n" "no, adding -mavx -mavx2" >&6; }
-                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -mavx -mavx2"
+                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+    vars="-lrt"
+    for i in $vars; do
+	if test "${TEA_PLATFORM}" = "windows" -a "$GCC" = "yes" ; then
+	    # Convert foo.lib to -lfoo for GCC.  No-op if not *.lib
+	    i=`echo "$i" | sed -e 's/^\([^-].*\)\.[lL][iI][bB]$/-l\1/'`
+	fi
+	PKG_LIBS="$PKG_LIBS $i"
+    done
+
+
 
 
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+        fi
 
         # Restore CFLAGS
         CFLAGS="$_CFLAGS"
@@ -9507,13 +9492,17 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     CFLAGS="$_CFLAGS"
 
     if test "$mtlsdebug" != "all"; then
-        _LDFLAGS="$LDFLAGS"
-        _CFLAGS="$CFLAGS"
-        LDFLAGS="-Wl,-dead_strip"
-        CFLAGS=
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether LD supports -Wl,-dead_strip" >&5
+
+        # Test this only on MacOS as GNU ld interprets -dead_strip
+        # as '-de'+'ad_strip'
+        if test "$SHLIB_SUFFIX" = ".dylib"; then
+            _LDFLAGS="$LDFLAGS"
+            _CFLAGS="$CFLAGS"
+            LDFLAGS="-Wl,-dead_strip"
+            CFLAGS=
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether LD supports -Wl,-dead_strip" >&5
 printf %s "checking whether LD supports -Wl,-dead_strip... " >&6; }
-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+            cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 int
@@ -9527,20 +9516,21 @@ _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
 
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-            LDFLAGS="$_LDFLAGS -Wl,-dead_strip"
+                LDFLAGS="$_LDFLAGS -Wl,-dead_strip"
 
 else $as_nop
 
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-            LDFLAGS="$_LDFLAGS"
+                LDFLAGS="$_LDFLAGS"
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-        CFLAGS="$_CFLAGS"
+            CFLAGS="$_CFLAGS"
+        fi
 
         _LDFLAGS="$LDFLAGS"
         _CFLAGS="$CFLAGS"

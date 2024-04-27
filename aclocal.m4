@@ -207,27 +207,20 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
             ]
         )
 
-        AC_MSG_CHECKING(for SSE4.1 instruction set)
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-            #include <smmintrin.h>
-        ]],[])],
-            [AC_MSG_RESULT(yes)], [
-                AC_MSG_RESULT([no, adding -msse4.1])
-                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -msse4.1"
-            ]
-        )
-
-        AC_MSG_CHECKING(for AVX/AVX2 instruction set)
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-            #include <immintrin.h>
-        ]],[[
-            __m256i sub2;
-        ]])],
-            [AC_MSG_RESULT(yes)], [
-                AC_MSG_RESULT([no, adding -mavx -mavx2])
-                MBEDTLS_CFLAGS="$MBEDTLS_CFLAGS -mavx -mavx2"
-            ]
-        )
+        if test "${TEA_PLATFORM}" = "unix" ; then
+            AC_MSG_CHECKING(for required -lrt)
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+                #include <time.h>
+            ]],[[
+                struct timespec t;
+                clock_gettime(0, &t);
+            ]])],
+                [AC_MSG_RESULT(no)], [
+                    AC_MSG_RESULT([yes])
+                    TEA_ADD_LIBS([-lrt])
+                ]
+            )
+        fi
 
         # Restore CFLAGS
         CFLAGS="$_CFLAGS"
@@ -282,19 +275,24 @@ AC_DEFUN([TCLMTLS_SET_LDFLAGS], [
     CFLAGS="$_CFLAGS"
 
     if test "$mtlsdebug" != "all"; then
-        _LDFLAGS="$LDFLAGS"
-        _CFLAGS="$CFLAGS"
-        LDFLAGS="-Wl,-dead_strip"
-        CFLAGS=
-        AC_MSG_CHECKING([whether LD supports -Wl,-dead_strip])
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
-            AC_MSG_RESULT([yes])
-            LDFLAGS="$_LDFLAGS -Wl,-dead_strip"
-        ],[
-            AC_MSG_RESULT([no])
-            LDFLAGS="$_LDFLAGS"
-        ])
-        CFLAGS="$_CFLAGS"
+
+        # Test this only on MacOS as GNU ld interprets -dead_strip
+        # as '-de'+'ad_strip'
+        if test "$SHLIB_SUFFIX" = ".dylib"; then
+            _LDFLAGS="$LDFLAGS"
+            _CFLAGS="$CFLAGS"
+            LDFLAGS="-Wl,-dead_strip"
+            CFLAGS=
+            AC_MSG_CHECKING([whether LD supports -Wl,-dead_strip])
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
+                AC_MSG_RESULT([yes])
+                LDFLAGS="$_LDFLAGS -Wl,-dead_strip"
+            ],[
+                AC_MSG_RESULT([no])
+                LDFLAGS="$_LDFLAGS"
+            ])
+            CFLAGS="$_CFLAGS"
+        fi
 
         _LDFLAGS="$LDFLAGS"
         _CFLAGS="$CFLAGS"
