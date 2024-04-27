@@ -21,8 +21,9 @@ test mtls-basic-1.1 { check that mtls::import preserves options } -constraints c
     set res [list]
     foreach opt [lsort -unique [concat [dict keys $opts1] [dict keys $opts2]]] {
         if { $opt eq "-peername" } {
-            # hostname in the -peername option is expected to be different in
-            # cloud environments when ip can be resolved to different hostnames
+            # hostname in the -peername option is expected to be different for
+            # google's ip address because it can be back-resolved
+            # to different hostnames
             if { [dict exists $opts1 $opt] } {
                 dict set opts1 $opt [lreplace [dict get $opts1 $opt] 1 1]
             }
@@ -54,6 +55,17 @@ test mtls-basic-1.2 { check that mtls::import preserves options } -constraints c
     close $s2
     set res [list]
     foreach opt [lsort -unique [concat [dict keys $opts1] [dict keys $opts2]]] {
+        if { $opt eq "-peername" } {
+            # hostname in the -peername option is expected to be different for
+            # google's ip address because it can be back-resolved
+            # to different hostnames
+            if { [dict exists $opts1 $opt] } {
+                dict set opts1 $opt [lreplace [dict get $opts1 $opt] 1 1]
+            }
+            if { [dict exists $opts2 $opt] } {
+                dict set opts2 $opt [lreplace [dict get $opts2 $opt] 1 1]
+            }
+        }
         if { ![dict exists $opts1 $opt] } {
             lappend res "opt\[$opt\]: doesn't exist in \$opts1"
         } elseif { ![dict exists $opts2 $opt] } {
