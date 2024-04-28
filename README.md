@@ -274,7 +274,7 @@ TLS handshake.
 
 For compatibility with **tcltls**, this procedure can also accept
 `-command callback`, `-request bool`, `-ssl2 bool`, `-ssl3 bool`,
-`-tls1 bool` and `-tls1.1 bool` arguments. However, will be ignored.
+`-tls1 bool` and `-tls1.1 bool` arguments. However, they will be ignored.
 
 ##### Return value
 

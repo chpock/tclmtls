@@ -249,7 +249,7 @@ proc ::mtls::import { channel args } {
     #
     # For compatibility with **tcltls**, this procedure can also accept
     # `-command callback`, `-request bool`, `-ssl2 bool`, `-ssl3 bool`,
-    # `-tls1 bool` and `-tls1.1 bool` arguments. However, will be ignored.
+    # `-tls1 bool` and `-tls1.1 bool` arguments. However, they will be ignored.
     #
     # Returns: The name of a TLS-enabled Tcl channel that can be used to send
     # and receive data.

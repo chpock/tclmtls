@@ -186,7 +186,7 @@ mtls::socket -certfile $serverCert -keyfile $serverKey -server accept 8080
 <tr><td><code>-tls1.3 bool</code></td><td>Enable use of TLS v1.3 protocol (default: <code>true</code>)</td></tr>
 </table>
 <h5 class='ruff'>Description</h5><p class='ruff'>TLS-enables a regular Tcl channel and sets session parameters for TLS handshake.</p>
-<p class='ruff'>For compatibility with <strong>tcltls</strong>, this procedure can also accept <code>-command callback</code>, <code>-request bool</code>, <code>-ssl2 bool</code>, <code>-ssl3 bool</code>, <code>-tls1 bool</code> and <code>-tls1.1 bool</code> arguments. However, will be ignored.</p>
+<p class='ruff'>For compatibility with <strong>tcltls</strong>, this procedure can also accept <code>-command callback</code>, <code>-request bool</code>, <code>-ssl2 bool</code>, <code>-ssl3 bool</code>, <code>-tls1 bool</code> and <code>-tls1.1 bool</code> arguments. However, they will be ignored.</p>
 <h5 class='ruff'>Return value</h5><p class='ruff'>The name of a TLS-enabled Tcl channel that can be used to send and receive data.</p>
 <h3 class='ruffproc'><a name='::mtls::init'>init</a><span class='ns_scope'> [<a href="mtls.html#::mtls" title="::mtls" class='ruff_cmd'>::mtls</a>]</span><span class='ruff-uplink'><a href='mtls.html#::mtls'>mtls</a>, <a href='#top'>Top</a></span></h3>
 <div style='clear:both;'></div>
