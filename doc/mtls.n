@@ -1,0 +1,389 @@
+'\"
+'\"
+.TH "mtls" 3tcl 1\&.0\&.0 "mtls" "Mtls"
+.SH NAME
+Introduction - Mtls
+.SH SYNOPSIS
+\fBciphers\fP \fIprotocol\fP
+.br
+\fBdebug\fP \fI?integer?\fP
+.br
+\fBdebug\fP \fI?level? ?backend_level?\fP
+.br
+\fBhandshake\fP \fIchannel\fP
+.br
+\fBimport\fP \fIchannel ?options?\fP
+.br
+\fBinit\fP \fI?options?\fP
+.br
+\fBprotocols\fP
+.br
+\fBsocket\fP \fI?options? host port\fP
+.br
+\fBsocket\fP \fI?-server command? ?options? port\fP
+.br
+\fBstatus\fP \fIchannel\fP
+.br
+\fBunimport\fP \fIchannel\fP
+.br
+\fBversion\fP
+.br
+.SH ::MTLS
+.SH DESCRIPTION
+.PP
+This Tcl package provides an extension which implements Transport
+Layer Security (TLS) over Transmission Control Protocol (TCP)
+network communication channels\&.
+.PP
+Typically one would use the \fIsocket\fP command which provides
+compatibility with the native Tcl \fIsocket\fP [URL: https://www\&.tcl\&.tk/man/tcl8\&.6/TclCmd/socket\&.htm]
+command\&. In such cases \fIimport\fP should not be used directly\&.
+.SH "HTTPS EXAMPLES"
+.SS "CLIENT EXAMPLE"
+.PP
+.RS 4n
+.nf
+package require http
+package require mtls
+
+http::register https 443 ::tls::socket
+
+set tok [http::geturl https://www\&.tcl\&.tk/]
+
+.fi
+.RE
+.SS "SERVER EXAMPLE"
+.PP
+.RS 4n
+.nf
+package require mtls
+
+proc readable { sock } {
+    # do something
+}
+
+proc accept { sock addr port } {
+    fileevent $sock readable [list readable $sock]
+}
+
+mtls::socket -certfile $serverCert -keyfile $serverKey -server accept 8080
+
+.fi
+.RE
+.SH COMMANDS
+.PP
+.RS -4n
+\fBciphers\fR (::mtls)
+.RE
+.PP
+Gets a list of supported ciphers\&.
+.RS 4n\fBciphers\fP \fIprotocol\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+protocol
+protocol for which a list of ciphers will be returned\&. Must be one of tls1\&.2 or tls1\&.3\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+For compatibility with \fBtcltls\fP, this procedure can also accept
+verbose and supported arguments\&. However, they do not affect
+the result and will be ignored\&.
+.PP
+\fBReturn value\fR
+.PP
+A Tcl list of supported ciphers based on the specified
+protocol\&.
+.PP
+.RS -4n
+\fBdebug\fR (::mtls)
+.RE
+.PP
+Sets the level for debug messages
+.RS 4n\fBdebug\fP \fI?integer?\fP
+.br
+\fBdebug\fP \fI?level? ?backend_level?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+backend_level
+sets the desired level for TLS backend debug messages\&. The format is the same as for the level argument\&.
+.TP
+integer
+integer in this form will represent the debugging level for the packet and TLS backend messages\&. The first 3 bits refer to the packet layer and the next 3 bits refer to the TLS backend layer\&. The minimum level is 0, which means no messages, and the maximum level is 5, which corresponds to the trace level\&.
+.TP
+level
+sets the desired level for package debug messages, which must be one of none, error, warning, info, debug, trace or a number from 0 to 5\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+If no arguments are specified, this command simply returns the current
+level\&.
+.PP
+Debug messages will only work if the package was built with debugging
+support\&. Otherwise, this level will be ignored\&.
+.PP
+\fBReturn value\fR
+.PP
+An unsigned integer corresponding to the current level
+for both package and TLS backend debug messages\&.
+.PP
+.RS -4n
+\fBhandshake\fR (::mtls)
+.RE
+.PP
+Forces handshake to take place
+.RS 4n\fBhandshake\fP \fIchannel\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+channel
+TLS channel on which the handshake process should be started\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+0 if handshake is still in progress (non-blocking), or 1 if
+the handshake was successful\&. If the handshake failed this procedure
+will throw an error\&.
+.PP
+.RS -4n
+\fBimport\fR (::mtls)
+.RE
+.PP
+Adds TLS layer for existing socket channel\&.
+.RS 4n\fBimport\fP \fIchannel ?options?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+channel
+A regular Tcl channel created wich Tcl \fIsocket\fP [URL: https://www\&.tcl\&.tk/man/tcl8\&.6/TclCmd/socket\&.htm] command\&.
+.TP
+-cadir dir
+Provide the directory containing the CA certificates\&.
+.TP
+-cafile filename
+Provide the CA file\&.
+.TP
+-cert data
+Provide the contents of a certificate to use, as a PEM encoded or a binary DER encoded value (X\&.509 DER)\&.
+.TP
+-certfile filename
+Provide the name of a file containing certificate to use\&.
+.TP
+-cipher list
+Provide the list of cipher suites to use\&.
+.TP
+-dhparams filename
+Provide a Diffie-Hellman parameters file\&.
+.TP
+-key data
+Provide the private key to use as a PEM encoded or a binary DER encoded value (X\&.509 DER)\&.
+.TP
+-keyfile filename
+Provide the private key file\&. (default: value of -certfile)
+.TP
+-model channel
+This will force this channel to share the same parameters as the specified channel\&.
+.TP
+-password callback
+If supplied, this callback will be invoked to unlock the private key of a certificate\&. The callback should return a string which represents the password to be used\&.
+.TP
+-require bool
+Require a valid certificate from peer during TLS handshake\&. (default: true for client connections and false for server connections)
+.TP
+-server bool
+Handshake as server if true, else handshake as client\&. (default: false)
+.TP
+-servername host
+Use to name the logical host we are talking to and expecting a certificate for\&.
+.TP
+-tls1\&.2 bool
+Enable use of TLS v1\&.2 protocol (default: true)
+.TP
+-tls1\&.3 bool
+Enable use of TLS v1\&.3 protocol (default: true)
+.RE
+.PP
+\fBDescription\fR
+.PP
+TLS-enables a regular Tcl channel and sets session parameters for
+TLS handshake\&.
+.PP
+For compatibility with \fBtcltls\fP, this procedure can also accept
+-command callback, -request bool, -ssl2 bool, -ssl3 bool,
+-tls1 bool and -tls1\&.1 bool arguments\&. However, will be ignored\&.
+.PP
+\fBReturn value\fR
+.PP
+The name of a TLS-enabled Tcl channel that can be used to send
+and receive data\&.
+.PP
+.RS -4n
+\fBinit\fR (::mtls)
+.RE
+.PP
+Sets the default settings for newly created TLS channels\&.
+.RS 4n\fBinit\fP \fI?options?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+?options?
+options supported by the \fIimport\fP and \fIsocket\fP commands\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Sets the default settings for newly created TLS channels\&. The -model,
+-server, -servername options will be accepted but silently ignored\&.
+.PP
+\fBReturn value\fR
+.PP
+The dict value with the currently defined default options\&.
+.PP
+.RS -4n
+\fBprotocols\fR (::mtls)
+.RE
+.PP
+Get a list of supported TLS protocols\&.
+.RS 4n\fBprotocols\fP
+.br
+.RE
+.PP
+\fBReturn value\fR
+.PP
+A Tcl list of supported TLS protocols\&.
+.PP
+.RS -4n
+\fBsocket\fR (::mtls)
+.RE
+.PP
+Create a TLS socket channel\&.
+.RS 4n\fBsocket\fP \fI?options? host port\fP
+.br
+\fBsocket\fP \fI?-server command? ?options? port\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-autoservername bool
+Automatically set the -servername as the host argument (default: true)
+.TP
+options
+options accepted by the normal Tcl command \fIsocket\fP [URL: https://www\&.tcl\&.tk/man/tcl8\&.6/TclCmd/socket\&.htm] and the \fIimport\fP command\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+This is a helper function for creating TLS-enabled channels\&. It behaves
+exactly the same as the native Tcl \fIsocket\fP [URL: https://www\&.tcl\&.tk/man/tcl8\&.6/TclCmd/socket\&.htm]
+command, and accepts all of its options\&. In addition, it takes all
+parameters from the \fIimport\fP command to configure the newly created
+channel\&.
+.PP
+It also accepts the option -autoservername\&. If set to true,
+the value of the -servername option will be automatically detected
+from the specified connection parameters\&.
+.PP
+\fBReturn value\fR
+.PP
+The name of a TLS-enabled Tcl channel that can be used to send
+and receive data\&.
+.PP
+.RS -4n
+\fBstatus\fR (::mtls)
+.RE
+.PP
+Gets the current security status of an TLS channel\&.
+.RS 4n\fBstatus\fP \fIchannel\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+channel
+TLS channel from which to obtain status
+.RE
+.PP
+\fBDescription\fR
+.PP
+The returned value will be a Tcl dictionary with the following keys:
+.RS 4n
+.TP
+version
+The protocol version used for the connection: TLSv1\&.1, TLSv1\&.2, unknown\&.
+.TP
+cipher
+The current cipher in use between the client and server\&.
+.TP
+sbits
+The number of bits used for the session key\&.
+.RE
+.PP
+For compatibility with \fBtcltls\fP, this procedure can also accept
+-local optional argument\&. However, it will be ignored\&.
+.PP
+\fBReturn value\fR
+.PP
+The Tcl dict value with the current security status of
+the TLS channel\&.
+.PP
+.RS -4n
+\fBunimport\fR (::mtls)
+.RE
+.PP
+Unstacks the TLS-enabling of a regular Tcl channel\&.
+.RS 4n\fBunimport\fP \fIchannel\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+channel
+TLS channel from which TLS layer is to be removed\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Provided for symmetry to \fIimport\fP command\&. This unstacks
+the TLS-enabling of a regular Tcl channel\&.
+.PP
+\fBReturn value\fR
+.PP
+nothing\&.
+.PP
+.RS -4n
+\fBversion\fR (::mtls)
+.RE
+.PP
+Get the type and version of the TLS backend in use\&.
+.RS 4n\fBversion\fP
+.br
+.RE
+.PP
+\fBReturn value\fR
+.PP
+A string with the type and version number of
+the TLS backend used\&.
+
