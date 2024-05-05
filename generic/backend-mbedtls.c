@@ -1065,7 +1065,7 @@ int mtls_backend_free(Tcl_Interp *interp) {
     if (entropy_initialized) {
         if (--entropy_initialized) {
             INF("thread-shared entropy is in use by other interp");
-        } {
+        } else {
             INF("free thread-shared entropy");
             mbedtls_entropy_free(&ts_entropy);
         }
