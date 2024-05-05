@@ -317,7 +317,10 @@ TESTFLAGS ?= -verbose "body error start"
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
-mbedtls/library/lib%.a:
+mbedtls/3rdparty/everest/library/%.o:
+mbedtls/3rdparty/p256-m/%.o:
+mbedtls/3rdparty/p256-m/p256-m/%.o:
+mbedtls/library/%.o:
 	[ -d mbedtls ] || { mkdir -p mbedtls && cp -r "$(srcdir)/mbedtls"/* mbedtls; }
 # Do not depend on perl/python, this leads to rust dependencies. python developeds are terrible.
 # See: https://github.com/Mbed-TLS/mbedtls/issues/6596

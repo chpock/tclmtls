@@ -2,6 +2,7 @@
 	* Bumped version to 1.1.0
 	* Fix typo
 	* Refine the build instructions
+	* Build correctly the static library version
 
 2024-04-28 Konstantin Kushnir <chpock@gmail.com>
 	* RELEASE TAG 1.0.0

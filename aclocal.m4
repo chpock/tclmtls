@@ -154,9 +154,10 @@ AC_DEFUN([TCLMTLS_CHECK_MBEDTLS], [
 ])
 
 AC_DEFUN([TCLMTLS_ADD_OBJECTS], [
-    vars="$@"
+    prefix="$1"
+    vars="$2"
     for i in $vars; do
-        PKG_OBJECTS="$PKG_OBJECTS $i"
+        PKG_OBJECTS="$PKG_OBJECTS mbedtls/${prefix}/${i}.o"
     done
     AC_SUBST(PKG_OBJECTS)
 ])
@@ -179,11 +180,144 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
         fi
         TEA_ADD_SOURCES([backend-mbedtls.c])
         TEA_ADD_INCLUDES([-I\"`${CYGPATH} ${srcdir}/mbedtls/include`\" -I\"`${CYGPATH} ${srcdir}/generic`\"])
-        TCLMTLS_ADD_OBJECTS([
-            mbedtls/library/libmbedtls.a
-            mbedtls/library/libmbedx509.a
-            mbedtls/library/libmbedcrypto.a
+
+        # libmbedtls.a
+        TCLMTLS_ADD_OBJECTS([library], [
+            debug
+            mps_reader
+            mps_trace
+            net_sockets
+            ssl_cache
+            ssl_ciphersuites
+            ssl_client
+            ssl_cookie
+            ssl_debug_helpers_generated
+            ssl_msg
+            ssl_ticket
+            ssl_tls
+            ssl_tls12_client
+            ssl_tls12_server
+            ssl_tls13_keys
+            ssl_tls13_client
+            ssl_tls13_server
+            ssl_tls13_generic
         ])
+
+        # libmbedx509.a
+        TCLMTLS_ADD_OBJECTS([library], [
+             x509
+             x509_create
+             x509_crl
+             x509_crt
+             x509_csr
+             x509write
+             x509write_crt
+             x509write_csr
+             pkcs7
+        ])
+
+        # libmbedcrypto.a
+        TCLMTLS_ADD_OBJECTS([library], [
+             aes
+             aesni
+             aesce
+             aria
+             asn1parse
+             asn1write
+             base64
+             bignum
+             bignum_core
+             bignum_mod
+             bignum_mod_raw
+             block_cipher
+             camellia
+             ccm
+             chacha20
+             chachapoly
+             cipher
+             cipher_wrap
+             cmac
+             constant_time
+             ctr_drbg
+             des
+             dhm
+             ecdh
+             ecdsa
+             ecjpake
+             ecp
+             ecp_curves
+             ecp_curves_new
+             entropy
+             entropy_poll
+             error
+             gcm
+             hkdf
+             hmac_drbg
+             lmots
+             lms
+             md
+             md5
+             memory_buffer_alloc
+             nist_kw
+             oid
+             padlock
+             pem
+             pk
+             pk_ecc
+             pk_wrap
+             pkcs12
+             pkcs5
+             pkparse
+             pkwrite
+             platform
+             platform_util
+             poly1305
+             psa_crypto
+             psa_crypto_aead
+             psa_crypto_cipher
+             psa_crypto_client
+             psa_crypto_driver_wrappers_no_static
+             psa_crypto_ecp
+             psa_crypto_ffdh
+             psa_crypto_hash
+             psa_crypto_mac
+             psa_crypto_pake
+             psa_crypto_rsa
+             psa_crypto_se
+             psa_crypto_slot_management
+             psa_crypto_storage
+             psa_its_file
+             psa_util
+             ripemd160
+             rsa
+             rsa_alt_helpers
+             sha1
+             sha256
+             sha512
+             sha3
+             threading
+             timing
+             version
+             version_features
+        ])
+
+        # 3rdparty/everest/library
+        TCLMTLS_ADD_OBJECTS([3rdparty/everest/library], [
+             everest
+             x25519
+             Hacl_Curve25519_joined
+        ])
+
+        # 3rdparty/p256-m
+        TCLMTLS_ADD_OBJECTS([3rdparty/p256-m], [
+             p256-m_driver_entrypoints
+        ])
+
+        # 3rdparty/p256-m/p256-m
+        TCLMTLS_ADD_OBJECTS([3rdparty/p256-m/p256-m], [
+             p256-m
+        ])
+
         AC_DEFINE(USE_MBEDTLS)
         mtlsbackend="mbedtls"
 
