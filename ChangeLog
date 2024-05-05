@@ -3,6 +3,7 @@
 	* Fix typo
 	* Refine the build instructions
 	* Build correctly the static library version
+	* Fix the compiler warning for non-threaded build
 
 2024-04-28 Konstantin Kushnir <chpock@gmail.com>
 	* RELEASE TAG 1.0.0

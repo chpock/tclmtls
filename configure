@@ -9612,7 +9612,7 @@ then :
 
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        LDFLAGS="$_LDFLAGS -Wl,-Map=\.map"
+        LDFLAGS="$_LDFLAGS -Wl,-Map=\$@.map"
 
 else $as_nop
 

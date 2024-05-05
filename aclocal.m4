@@ -387,7 +387,7 @@ AC_DEFUN([TCLMTLS_SET_LDFLAGS], [
     AC_MSG_CHECKING([whether LD supports -Wl,-Map=])
     AC_LINK_IFELSE([AC_LANG_PROGRAM([])],[
         AC_MSG_RESULT([yes])
-        LDFLAGS="$_LDFLAGS -Wl,-Map=\$@.map"
+        LDFLAGS="$_LDFLAGS -Wl,-Map=\[$]@.map"
     ],[
         AC_MSG_RESULT([no])
         LDFLAGS="$_LDFLAGS"

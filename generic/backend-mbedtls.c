@@ -185,14 +185,13 @@ static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
 
 #endif /* _WIN32 */
 
-
 #ifdef TCL_THREADS
 static mbedtls_entropy_context ts_entropy;
-#endif
-
-#define MBEDTLS_ERROR_BUFF_SIZE 256
 
 static int entropy_func(void *data, unsigned char *output, size_t len);
+#endif /* TCL_THREADS */
+
+#define MBEDTLS_ERROR_BUFF_SIZE 256
 
 static void mbedtls_ctx_set_error_string(mtls_backend_ctx *ctx,
     const char *fmt, ...)
