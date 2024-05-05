@@ -48,8 +48,11 @@ building with Mingw-w64 toolchain is supported.
 The standard TEA config, make and install process is supported.
 
 ```
+$ git clone https://github.com/chpock/tclmtls.git
 $ cd tclmtls
-$ ./configure
+$ git submodule update --init --recursive
+$ mkdir build && cd build
+$ ../configure
 $ make
 $ make test
 $ make install

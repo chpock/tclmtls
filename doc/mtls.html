@@ -6,7 +6,7 @@
 <body style='--ruff-nav-toc-offset: 1em;'>
 <div class='ruff-layout'>
 <header class='ruff-layout-header ruff-hd'>
-<a style='text-decoration:none;' href='mtls.html'>Mtls (v1.0.0)</a>
+<a style='text-decoration:none;' href='mtls.html'>Mtls (v1.1.0)</a>
 
 
             <div id="ruffButtonBar">
@@ -50,8 +50,11 @@
 <p class='ruff'>The standard TEA config, make and install process is supported.</p>
 
 <figure  class='ruff-snippet ruff-figure'><pre class='ruff'>
+$ git clone https://github.com/chpock/tclmtls.git
 $ cd tclmtls
-$ ./configure
+$ git submodule update --init --recursive
+$ mkdir build &amp;&amp; cd build
+$ ../configure
 $ make
 $ make test
 $ make install
