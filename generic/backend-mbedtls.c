@@ -893,7 +893,7 @@ Tcl_Obj *mtls_backend_ctx_get_status(mtls_backend_ctx *ctx,
         const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
         ciphersuite_info = mbedtls_ssl_ciphersuite_from_id(suite_id);
         int sbits = mbedtls_ssl_ciphersuite_get_cipher_key_bitlen(ciphersuite_info);
-        obj = Tcl_NewIntObj(sbits);
+        obj = Tcl_NewSizeIntFromObj(sbits);
         break;
     }
 
@@ -932,7 +932,7 @@ int mtls_backend_ctx_free(mtls_backend_ctx *ctx) {
         while (ctx->alpnlen) {
             ctx->alpnlen--;
             if (ctx->alpn[ctx->alpnlen] != NULL) {
-                ckfree(ctx->alpn[ctx->alpnlen]);
+                ckfree((void *)ctx->alpn[ctx->alpnlen]);
             }
         }
         ckfree(ctx->alpn);

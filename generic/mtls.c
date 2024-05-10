@@ -122,7 +122,7 @@ const char *mtls_ctx_error_get(mtls_ctx *ctx) {
 
 int __debug_nested = -1;
 
-void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp,
+void mtls_debug(unsigned char level, Tcl_Size clevel, Tcl_Interp *interp,
     const char *fmt, ...)
 {
     va_list args;
@@ -139,7 +139,7 @@ void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp,
         clevel = 0;
         obj = Tcl_GetVar2Ex(interp, __debug[1], NULL, TCL_GLOBAL_ONLY);
         if (obj != NULL) {
-            if (Tcl_GetIntFromObj(interp, obj, &clevel) == TCL_ERROR) {
+            if (Tcl_GetSizeIntFromObj(interp, obj, &clevel) == TCL_ERROR) {
                 Tcl_ResetResult(interp);
             }
         }
@@ -186,7 +186,7 @@ void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp,
        obj = Tcl_DuplicateObj(obj);
        Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(
            "::mtls::debug_callback", -1));
-       Tcl_ListObjAppendElement(interp, obj, Tcl_NewIntObj(level));
+       Tcl_ListObjAppendElement(interp, obj, Tcl_NewSizeIntFromObj(level));
        Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(msg, -1));
 
        // The command is ready. Execute it in interp.
@@ -519,7 +519,8 @@ int mtls_ctx_close(mtls_ctx *ctx) {
     RETURN(OK);
 }
 
-int mtls_ctx_free(mtls_ctx *ctx) {
+void mtls_ctx_free(tcl_free_type *_ctx) {
+    mtls_ctx *ctx = (mtls_ctx *)_ctx;
     ENTER(ctx_free, ctx->interp);
 
     if (ctx != NULL) {
@@ -545,7 +546,7 @@ int mtls_ctx_free(mtls_ctx *ctx) {
 
     }
 
-    RETURN(OK);
+    RETURN();
 }
 
 static void mtls_get_ciphers_push(Tcl_Interp *interp, const char *cipher,

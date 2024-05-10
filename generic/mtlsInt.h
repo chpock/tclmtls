@@ -16,6 +16,9 @@
 
 #include <tcl.h>
 #include <string.h>
+#if TCL_MAJOR_VERSION > 8
+#include <stdarg.h>
+#endif /* TCL_MAJOR_VERSION > 8 */
 
 #if defined(MTLS_DEBUG_ALL)
 #define MTLS_DEBUG_LEVEL 4
@@ -67,13 +70,25 @@
 /*
  * Backwards compatibility for size type change
  */
-#if TCL_MAJOR_VERSION < 9 && TCL_MINOR_VERSION < 7
-    #ifndef Tcl_Size
-        typedef int Tcl_Size;
-    #endif
 
-    #define TCL_SIZE_MODIFIER ""
-#endif
+#ifndef TCL_SIZE_MAX
+#include <limits.h>
+#ifndef Tcl_Size
+    typedef int Tcl_Size;
+#endif /* Tcl_Size */
+#define TCL_SIZE_MODIFIER ""
+#define Tcl_GetSizeIntFromObj Tcl_GetIntFromObj
+#define Tcl_NewSizeIntFromObj Tcl_NewIntObj
+#define TCL_SIZE_MAX INT_MAX
+#else
+#define Tcl_NewSizeIntFromObj Tcl_NewWideIntObj
+#endif /* TCL_SIZE_MAX */
+
+#if TCL_MAJOR_VERSION < 9
+    typedef char tcl_free_type;
+#else
+    typedef void tcl_free_type;
+#endif /* TCL_MAJOR_VERSION < 9 */
 
 typedef enum {
     MTLS_BIO_READ,
@@ -161,13 +176,13 @@ extern const char *mtls_protocol_strings[];
 
 
 #define _ENTER(func, interp) \
-    int __current_debug_level = 0; \
+    Tcl_Size __current_debug_level = 0; \
     Tcl_Interp *__current_interp = ((interp) == NULL || Tcl_InterpDeleted((interp))) ? NULL : (interp); \
     if (__current_interp != NULL) { \
         Tcl_Obj *__current_debug_level_obj = Tcl_GetVar2Ex(__current_interp, \
             __debug[1], NULL, TCL_GLOBAL_ONLY); \
         if (__current_debug_level_obj != NULL) { \
-            if (Tcl_GetIntFromObj(__current_interp, __current_debug_level_obj, \
+            if (Tcl_GetSizeIntFromObj(__current_interp, __current_debug_level_obj, \
                 &__current_debug_level) == TCL_ERROR) { \
                     Tcl_ResetResult(__current_interp); \
             } \
@@ -189,7 +204,7 @@ extern const char *mtls_protocol_strings[];
 #define SET_RESULT_OBJECT(v) \
     Tcl_SetObjResult(interp, (v))
 
-#define SET_RESULT_INT(v) SET_RESULT_OBJECT(Tcl_NewIntObj(v))
+#define SET_RESULT_INT(v) SET_RESULT_OBJECT(Tcl_NewSizeIntFromObj(v))
 
 #define SET_RESULT_STRING(v) SET_RESULT_OBJECT(Tcl_NewStringObj((v), -1))
 

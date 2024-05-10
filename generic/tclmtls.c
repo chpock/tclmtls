@@ -392,8 +392,8 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
     UNUSED(clientData);
     ENTER(cmd_debug, interp);
 
-    int level = 0;
-    int backend_level = 0;
+    Tcl_Size level = 0;
+    Tcl_Size backend_level = 0;
 #if MTLS_DEBUG_LEVEL >= 1
     Tcl_Obj *obj;
 #endif /* MTLS_DEBUG_LEVEL */
@@ -410,7 +410,7 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
     // Set the package error level
     if (objc > 1) {
 
-        if (Tcl_GetIntFromObj(interp, objv[1], &level) == TCL_OK) {
+        if (Tcl_GetSizeIntFromObj(interp, objv[1], &level) == TCL_OK) {
             // The first argument is a number. Let's check if we have
             // 2nd argument. This sould be considered as an error.
             if (objc > 2) {
@@ -437,7 +437,7 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
 
 #if MTLS_DEBUG_LEVEL >= 1
         // Set the level to the Tcl variable
-        Tcl_SetVar2Ex(interp, __debug[1], NULL, Tcl_NewIntObj(level),
+        Tcl_SetVar2Ex(interp, __debug[1], NULL, Tcl_NewSizeIntFromObj(level),
             TCL_GLOBAL_ONLY);
 #endif /* MTLS_DEBUG_LEVEL */
 
@@ -449,7 +449,7 @@ static int mtls_cmd_debug(ClientData clientData, Tcl_Interp *interp,
         if (obj != NULL) {
             // The variable was found. Let's try to convert it to integer
             // value.
-            if (Tcl_GetIntFromObj(interp, obj, &level) == TCL_ERROR) {
+            if (Tcl_GetSizeIntFromObj(interp, obj, &level) == TCL_ERROR) {
                 // Could not convert it and this is ok. Let's use the
                 // default value and reset interp's error state.
                 Tcl_ResetResult(interp);
@@ -1137,7 +1137,7 @@ static int mtls_cmd_import(ClientData clientData, Tcl_Interp *interp,
 
     // Handle the cipher arg in special way. Convert Tcl list to *char[].
     const char **ciphers = NULL;
-    int cipherslen = 0;
+    Tcl_Size cipherslen = 0;
     if ((*conf)[MTLS_CONF_CIPHER] == NULL) {
         TRC("set config param cipher as *char[NULL]");
     } else {
@@ -1176,7 +1176,7 @@ static int mtls_cmd_import(ClientData clientData, Tcl_Interp *interp,
 
     // Handle the alpn arg in special way. Convert Tcl list to *char[].
     const char **alpn = NULL;
-    int alpnlen = 0;
+    Tcl_Size alpnlen = 0;
     if ((*conf)[MTLS_CONF_ALPN] == NULL) {
         TRC("set config param alpn as *char[NULL]");
     } else {
@@ -1302,7 +1302,7 @@ static int mtls_cmd_import(ClientData clientData, Tcl_Interp *interp,
         Tcl_SetObjResult(interp, Tcl_NewStringObj(
             mtls_ctx_error_get(ctx), -1));
         Tcl_SetErrorCode(interp, "MTLS", "INTERNAL", NULL);
-        mtls_ctx_free(ctx);
+        mtls_ctx_free((tcl_free_type *)ctx);
         RETURN(ERROR);
     }
 
@@ -1342,7 +1342,7 @@ static int mtls_cmd_import(ClientData clientData, Tcl_Interp *interp,
         Tcl_DStringFree(&saveEncoding);
         Tcl_DStringFree(&saveEOFChar);
         Tcl_DStringFree(&saveBlocking);
-        mtls_ctx_free(ctx);
+        mtls_ctx_free((tcl_free_type *)ctx);
         // we already have an error message from Tcl_StackChannel in interp's result
         APPEND_RESULT(". Could not create Tcl channel");
         SET_ERROR("IO");

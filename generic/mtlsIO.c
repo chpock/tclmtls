@@ -132,7 +132,7 @@ again:
         Tcl_Obj *errObj = Tcl_NewListObj(0, NULL);
         Tcl_ListObjAppendElement(NULL, errObj,
             Tcl_NewStringObj("-errorcode", -1));
-        Tcl_ListObjAppendElement(NULL, errObj, Tcl_NewIntObj(read));
+        Tcl_ListObjAppendElement(NULL, errObj, Tcl_NewSizeIntFromObj(read));
         Tcl_ListObjAppendElement(NULL, errObj,
             Tcl_NewStringObj(mtls_ctx_error_get(ctx), -1));
         Tcl_SetChannelError(ctx->self_chan, errObj);
@@ -184,7 +184,7 @@ static int mtls_OutputProc(ClientData instanceData, const char *buf,
         Tcl_Obj *errObj = Tcl_NewListObj(0, NULL);
         Tcl_ListObjAppendElement(NULL, errObj,
             Tcl_NewStringObj("-errorcode", -1));
-        Tcl_ListObjAppendElement(NULL, errObj, Tcl_NewIntObj(written));
+        Tcl_ListObjAppendElement(NULL, errObj, Tcl_NewSizeIntFromObj(written));
         Tcl_ListObjAppendElement(NULL, errObj,
             Tcl_NewStringObj(mtls_ctx_error_get(ctx), -1));
         Tcl_SetChannelError(ctx->self_chan, errObj);

@@ -60,7 +60,7 @@ typedef struct mtls_ctx {
 #define MTLS_CTX_FLAG_CLOSED   (1<<1) /* contex is closed */
 
 #if MTLS_DEBUG_LEVEL >= 1
-void mtls_debug(unsigned char level, int clevel, Tcl_Interp *interp, const char *fmt, ...);
+void mtls_debug(unsigned char level, Tcl_Size clevel, Tcl_Interp *interp, const char *fmt, ...);
 #endif /* MTLS_DEBUG_LEVEL */
 
 int mtls_init(Tcl_Interp *interp);
@@ -99,7 +99,8 @@ int mtls_ctx_init(
 );
 int mtls_ctx_connect(mtls_ctx *ctx);
 int mtls_ctx_close(mtls_ctx *ctx);
-int mtls_ctx_free(mtls_ctx *ctx);
+void mtls_ctx_free(tcl_free_type *ctx);
+
 int mtls_ctx_get_status(mtls_ctx *ctx, int is_local, Tcl_Obj *obj);
 
 void mtls_ctx_error_set(mtls_ctx *ctx, mtls_ctx_error_type type,
