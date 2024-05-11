@@ -53,3 +53,29 @@ proc localIP { ip } {
     }
     return $ip
 }
+
+proc substvars { script } {
+    set map [list]
+    foreach v {
+        clientCert clientKey
+        serverCert serverKey
+        selfsignedCert selfsignedKey
+        caCert
+        port
+    } {
+        if { [info exists ::$v] } {
+            lappend map "\$$v" [list [set ::$v]]
+        }
+    }
+    return [string map $map $script]
+}
+
+proc random_port { } {
+    set port [expr { 8828 + ([pid] % 4096) }]
+    if { [catch { ::socket -server accept $port } sock] } {
+        incr port
+    } {
+        close $sock
+    }
+    return $port
+}

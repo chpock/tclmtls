@@ -1,0 +1,84 @@
+Internal notes
+
+1. mbedtls-extra directory
+
+This directory contains some files that are needed to build mbedTLS.
+These files are related to a specific version of mbedTLS and when updating
+this version, these files should be updated/reviewed as well.
+
+Currently the following files are there:
+
+* library/error.c
+* library/psa_crypto_driver_wrappers_no_static.c
+* library/ssl_debug_helpers_generated.c
+* library/version_features.c
+* library/psa_crypto_driver_wrappers.h
+* library/psa_crypto_driver_wrappers_no_static.h
+
+These files are described in section "1.2. Generated mbedTLS files".
+
+* library/ssl_tls13_generic.c
+
+This file is described in section a1.
+
+1.1. Generated mbedTLS files
+
+The mbedTLS source code from github generates several files that are needed
+for building. For this, the build scripts use Perl and Python interpreters.
+But that's not all. For successful generation, the Python interpreter must
+also have non-standard modules installed. One of these modules requires
+compilation of rust code.
+
+As a result, to build a library in plain ANSI C, you also need Perl, Python,
+rust interpreters and additional modules to them.
+
+This leads to very high requirements for the build environment. Especially
+critical is the requirement of the rust interpreter, which can only run on
+a very limited number of platforms.
+
+To avoid these requirements, the already generated files for a particular
+version of mbedTLS are already in the "mbedtls-extra" directory.
+
+This removes the requirement to install additional interpreters in the build
+environment.
+
+1.2. Patched TLS1.3 client
+
+File "library/ssl_tls13_generic.c" contains the original "ssl_tls13_generic.c",
+but with patch from https://github.com/Mbed-TLS/mbedtls/issues/8509#issuecomment-2076818915
+applied.
+
+Details about the need for this file are described in section
+"2. mbedTLS and certificate verification".
+
+2. mbedTLS and certificate verification
+
+tclmtls relies on the mbedTLS built-in mechanism to control mandatory
+certificate validation. The method "mbedtls_ssl_conf_authmode()" with
+appropriate parameters is used.
+
+But it works only for TLS1.2 protocol and, unfortunately, does not work for
+TLS1.3 protocol. All details can be found in the corresponding issue:
+https://github.com/Mbed-TLS/mbedtls/issues/7075
+
+According to the idea of mbedTLS developers, to bypass this limitation, it
+would be possible to use certificate verification callback and function
+"mbedtls_ssl_conf_ca_cb()" ( https://github.com/Mbed-TLS/mbedtls/issues/8659 )
+Unfortunately the certificate verification callback is not called for
+the TLS1.3 protocol in mbedTLS version 3.6.0
+( https://github.com/Mbed-TLS/mbedtls/issues/7079 )
+
+This leads to the fact that when using the TLS1.3 protocol it is not possible
+to use untrusted certificates (e.g. self-signed certificates) without adding
+them to trusted CAs.
+
+As a workaround, you need to either drop the TLS1.3 protocol and use only
+the TLS1.2 protocol, or patch the mbedTLS source code and add the ability
+to use untrusted certificates.
+
+To do this, tclmtls contains a patched "ssl_tls13_generic.c" file in
+the "mbedtls-extra/library" directory.
+
+In the future, when the certificate validation callback behavior is fixed for
+the TLS1.3 protocol, support for controlling certificate validation via this
+callback should be added to tclmtls.

@@ -27,27 +27,6 @@ set caCert     [file join [testsDirectory] certs ca-cert.pem]
 #::mtls::debug trace trace
 #::mtls::debug error error
 
-proc random_port { } {
-    set port [expr { 8828 + ([pid] % 4096) }]
-    if { [catch { ::socket -server accept $port } sock] } {
-        incr port
-    } {
-        close $sock
-    }
-    return $port
-}
-
-proc substvars { script } {
-    return [string map [list \
-        {$clientCert} [list $::clientCert] \
-        {$clientKey}  [list $::clientKey] \
-        {$serverCert} [list $::serverCert] \
-        {$serverKey}  [list $::serverKey]  \
-        {$caCert}     [list $::caCert] \
-        {$port}       [list $::port]] \
-        $script]
-}
-
 proc generr { args } {
     catch [list ::socket {*}$args] err
     return $err

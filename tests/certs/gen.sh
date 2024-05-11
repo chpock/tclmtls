@@ -5,7 +5,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
-rm -f *.pem
+rm -f ca-*.pem server-*.pem client-*.pem
 
 set -x
 openssl genrsa -out ca-key.pem 4096
