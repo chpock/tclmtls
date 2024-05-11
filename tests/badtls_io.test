@@ -1,0 +1,75 @@
+# Copyright (c) 2024 Konstantin Kushnir <chpock@gmail.com>
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+# These test cases are similar to those in the tlsIO.test file
+# in the tcltls distribution.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require mtls
+package require http
+
+set badtls_io_ca [file join [testsDirectory] certs badtls_io_ca.pem]
+
+::mtls::init -cafile $badtls_io_ca
+
+::http::register https 443 ::mtls::socket
+
+source [file join [testsDirectory] helper.tcl]
+
+#::mtls::debug trace trace
+
+set results [dict create {*}{
+    mbedtls {
+        mtls-badtls_io-1.1  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.2  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.3  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.4  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.5  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.6  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.7  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.8  { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.9  { error {Handshake failed.*The certificate validity starts in the future*} }
+        mtls-badtls_io-1.10 { error {Handshake failed.*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badtls_io-1.11 { error {Handshake failed.*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badtls_io-1.12 { error {Handshake failed.*The certificate is signed with an unacceptable hash*} }
+        mtls-badtls_io-1.13 { error {Handshake failed.*Usage does not match the keyUsage extension*} }
+        mtls-badtls_io-1.14 { error {Handshake failed.*The certificate validity has expired*} }
+        mtls-badtls_io-1.15 { error {Handshake failed.*The certificate Common Name (CN) does not match with the expected CN*} }
+        mtls-badtls_io-1.16 { error {Handshake failed.*A fatal alert message was received from our peer*} }
+        mtls-badtls_io-1.17 { error {Handshake failed.*A fatal alert message was received from our peer*} }
+    }
+}]
+
+# "good" configurations. However, on May 12, 2024 - these resources have an expired certificate.
+{*}[test_request mtls-badtls_io-1.1 domain-match.badtls.io:10000]
+{*}[test_request mtls-badtls_io-1.2 wildcard-match.badtls.io:10001]
+{*}[test_request mtls-badtls_io-1.3 san-match.badtls.io:10002]
+{*}[test_request mtls-badtls_io-1.4 required-auth.badtls.io:10003]
+{*}[test_request mtls-badtls_io-1.5 optional-auth.badtls.io:10004]
+{*}[test_request mtls-badtls_io-1.6 dh1024.badtls.io:10005]
+{*}[test_request mtls-badtls_io-1.7 no-san.badtls.io:10006]
+
+# "bad" configurations
+{*}[test_request mtls-badtls_io-1.8 expired-1963.badtls.io:11000]
+{*}[test_request mtls-badtls_io-1.9 future.badtls.io:11001]
+{*}[test_request mtls-badtls_io-1.10 domain-mismatch.badtls.io:11002]
+{*}[test_request mtls-badtls_io-1.11 san-mismatch.badtls.io:11003]
+{*}[test_request mtls-badtls_io-1.12 weak-sig.badtls.io:11004]
+{*}[test_request mtls-badtls_io-1.13 bad-key-usage.badtls.io:11005]
+{*}[test_request mtls-badtls_io-1.14 expired.badtls.io:11006]
+{*}[test_request mtls-badtls_io-1.15 wildcard.mismatch.badtls.io:11007]
+{*}[test_request mtls-badtls_io-1.16 rc4.badtls.io:11008]
+{*}[test_request mtls-badtls_io-1.17 rc4-md5.badtls.io:11009]
+
+# reset mtls default settings
+::mtls::init
+
+# cleanup
+cleanupTests
+return

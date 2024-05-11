@@ -1,5 +1,6 @@
 2024-05-12 Konstantin Kushnir <chpock@gmail.com>
 	* Fix an issue with untrusted certificates with TLS1.3 protocol
+	* Add test cases from https://github.com/wbond/badtls.io
 
 2024-05-11 Konstantin Kushnir <chpock@gmail.com>
 	* Provide support for Tcl9
