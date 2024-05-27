@@ -1514,27 +1514,91 @@ DLLEXPORT int Mtls_Init(Tcl_Interp* interp) {
         RETURN(ERROR);
     }
 
+    int createAliases;
+    if (Tcl_FindNamespace(interp, "::tls", NULL, TCL_GLOBAL_ONLY)
+        == NULL)
+    {
+        DBG("create aliases in ::tls");
+        Tcl_CreateNamespace(interp, "::tls", NULL, NULL);
+        createAliases = 1;
+    } else {
+        DBG("do not create aliases in ::tls");
+        createAliases = 0;
+    }
+
+
     Tcl_CreateObjCommand(interp, "::mtls::socket",
         (Tcl_ObjCmdProc *)mtls_cmd_socket, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::socket", interp,
+            "::mtls::socket", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::init",
         (Tcl_ObjCmdProc *)mtls_cmd_init, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::init", interp,
+            "::mtls::init", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::import",
         (Tcl_ObjCmdProc *)mtls_cmd_import, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::import", interp,
+            "::mtls::import", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::handshake",
         (Tcl_ObjCmdProc *)mtls_cmd_handshake, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::handshake", interp,
+            "::mtls::handshake", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::debug",
         (Tcl_ObjCmdProc *)mtls_cmd_debug, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::debug", interp,
+            "::mtls::debug", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::ciphers",
         (Tcl_ObjCmdProc *)mtls_cmd_ciphers, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::ciphers", interp,
+            "::mtls::ciphers", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::protocols",
         (Tcl_ObjCmdProc *)mtls_cmd_protocols, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::protocols", interp,
+            "::mtls::protocols", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::version",
         (Tcl_ObjCmdProc *)mtls_cmd_version, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::version", interp,
+            "::mtls::version", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::unimport",
         (Tcl_ObjCmdProc *)mtls_cmd_unimport, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::unimport", interp,
+            "::mtls::unimport", 0, NULL);
+    }
+
     Tcl_CreateObjCommand(interp, "::mtls::status",
         (Tcl_ObjCmdProc *)mtls_cmd_status, conf, NULL);
+    if (createAliases) {
+        Tcl_CreateAlias(interp, "::tls::status", interp,
+            "::mtls::status", 0, NULL);
+    }
 
+
+    DBG("initialization: done");
     RETURN(OK);
 }
 #ifdef __cplusplus

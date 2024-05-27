@@ -81,6 +81,39 @@ test mtls-basic-1.2 { check that mtls::import preserves options } -constraints c
    unset -nocomplain s1 s2 opts1 opts2 res opt
 }
 
+test mtls-basic-2.1 { check that ::tls aliases are created } -setup {
+    set script [makeFile {
+        package require mtls
+        puts [lsort [info commands ::tls::*]]
+    } script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [gets $s]
+    close $s
+    set res
+} -cleanup {
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain script s res
+} -result {::tls::ciphers ::tls::debug ::tls::handshake ::tls::import ::tls::init ::tls::protocols ::tls::socket ::tls::status ::tls::unimport ::tls::version}
+
+test mtls-basic-2.2 { check that ::tls aliases are not created when namespace exists } -setup {
+    set script [makeFile {
+        namespace eval ::tls {}
+        package require mtls
+        puts [lsort [info commands ::tls::*]]
+    } script]
+} -body {
+    set s [open "|[interpreter] $script" r]
+    set res [gets $s]
+    close $s
+    set res
+} -cleanup {
+    catch { close $s }
+    file delete -force $script
+    unset -nocomplain script s res
+} -result {}
+
 # cleanup
 cleanupTests
 return

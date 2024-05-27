@@ -1,3 +1,6 @@
+2024-05-27 Konstantin Kushnir <chpock@gmail.com>
+	* Create compatibility aliases in ::tls namespace by default
+
 2024-05-12 Konstantin Kushnir <chpock@gmail.com>
 	* Fix an issue with untrusted certificates with TLS1.3 protocol
 	* Add test cases from https://github.com/wbond/badtls.io

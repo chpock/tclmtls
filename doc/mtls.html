@@ -102,6 +102,7 @@ $ make install
 <div style='clear:both;'></div>
 <p class='ruff'>This Tcl package provides an extension which implements Transport Layer Security (TLS) over Transmission Control Protocol (TCP) network communication channels.</p>
 <p class='ruff'>Typically one would use the <a href="mtls.html#::mtls::socket" title="socket" class='ruff_cmd'>socket</a> command which provides compatibility with the native Tcl <a href="https://www.tcl.tk/man/tcl8.6/TclCmd/socket.htm" >socket</a> command. In such cases <a href="mtls.html#::mtls::import" title="import" class='ruff_cmd'>import</a> should not be used directly.</p>
+<p class='ruff'>Please note, to ensure seamless use of both the classic tcltls package and this package, command aliases are created in the <code>::tls</code> namespace when loading mtls. This allows the same code base to be used when using different packages to support SSL/TLS connections. However, aliases will not be created if the <code>::tls</code> namespace already exists at the time the mtls package is loaded. This in turn allows both the tcltls and mtls packages to be loaded at the same time. But the tcltls package must be loaded first.</p>
 <h2 class='ruff'><a name='::mtls-HTTPS examples'></a>HTTPS examples<span class='ruff-uplink'><a href='mtls.html#::mtls'>mtls</a>, <a href='#top'>Top</a></span></h2>
 <div style='clear:both;'></div>
 <h3 class='ruff'><a name='::mtls-client example'></a>client example<span class='ruff-uplink'><a href='mtls.html#::mtls'>mtls</a>, <a href='#top'>Top</a></span></h3>
@@ -111,7 +112,7 @@ $ make install
 package require http
 package require mtls
 
-http::register https 443 ::tls::socket
+http::register https 443 ::mtls::socket
 
 set tok [http::geturl https://www.tcl.tk/]
 

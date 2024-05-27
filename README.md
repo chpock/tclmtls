@@ -134,6 +134,15 @@ Typically one would use the [socket](README\.html\#::mtls::socket) command which
 compatibility with the native Tcl [socket](https://www.tcl.tk/man/tcl8.6/TclCmd/socket.htm)
 command. In such cases [import](README\.html\#::mtls::import) should not be used directly.
 
+Please note, to ensure seamless use of both the classic tcltls package
+and this package, command aliases are created in the `::tls` namespace
+when loading mtls. This allows the same code base to be used when using
+different packages to support SSL/TLS connections. However, aliases
+will not be created if the `::tls` namespace already exists at the time
+the mtls package is loaded. This in turn allows both the tcltls and
+mtls packages to be loaded at the same time. But the tcltls package
+must be loaded first.
+
 ## <a name='::mtls-HTTPS_examples'></a>HTTPS examples
 
 ### <a name='::mtls-client_example'></a>client example
@@ -142,7 +151,7 @@ command. In such cases [import](README\.html\#::mtls::import) should not be used
 package require http
 package require mtls
 
-http::register https 443 ::tls::socket
+http::register https 443 ::mtls::socket
 
 set tok [http::geturl https://www.tcl.tk/]
 
