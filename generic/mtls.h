@@ -69,6 +69,8 @@ int mtls_get_ciphers(Tcl_Interp *interp, mtls_protocol protocol,
     int verbose, int supported, Tcl_Obj *obj);
 int mtls_get_version(Tcl_Interp *interp, Tcl_Obj *obj);
 
+void mtls_string_to_hex(char *buf, int len, Tcl_Obj *obj);
+
 int mtls_bio_write(void *bio, const unsigned char *buf, size_t blen);
 int mtls_bio_read(void *bio, unsigned char *buf, size_t blen);
 

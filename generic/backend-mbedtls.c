@@ -895,7 +895,35 @@ Tcl_Obj *mtls_backend_ctx_get_status(mtls_backend_ctx *ctx,
         int sbits = mbedtls_ssl_ciphersuite_get_cipher_key_bitlen(ciphersuite_info);
         obj = Tcl_NewSizeIntFromObj(sbits);
         break;
+    default:
+        DBG("try to get peer certificate");
+        const mbedtls_x509_crt *cert = mbedtls_ssl_get_peer_cert(&ctx->ssl);
+        DBG("got peer cert: %p", (void *)cert);
+        if (cert == NULL) {
+            goto no_cert_avail;
+        }
+        switch (type) {
+        case MTLS_BACKEND_CTX_SERIAL:
+            break;
+        case MTLS_BACKEND_CTX_FINGERPRINT_SHA1: ; // empty statement
+            char hash_sha1[20];
+            mbedtls_sha1(cert->raw.p, cert->raw.len, (unsigned char *)hash_sha1);
+            obj = Tcl_NewObj();
+            mtls_string_to_hex(hash_sha1, 20, obj);
+            break;
+        case MTLS_BACKEND_CTX_FINGERPRINT_SHA256: ; // empty statement
+            char hash_sha256[32];
+            mbedtls_sha256(cert->raw.p, cert->raw.len, (unsigned char *)hash_sha256, 0);
+            obj = Tcl_NewObj();
+            mtls_string_to_hex(hash_sha256, 32, obj);
+            break;
+        default:
+            break;
+        }
+        break;
     }
+
+no_cert_avail:
 
     RETURN(PTR, obj);
 }

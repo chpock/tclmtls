@@ -346,6 +346,18 @@ int mtls_bio_read(void *bio, unsigned char *buf, size_t blen) {
     RETURN(INT, read);
 }
 
+void mtls_string_to_hex(char *buf, int len, Tcl_Obj *obj) {
+    char byte[2];
+    const char *hex = "0123456789ABCDEF";
+
+    for (int i = 0; i < len; i++) {
+        byte[0] = hex[(buf[i] >> 4) & 0xF];
+        byte[1] = hex[buf[i] & 0xF];
+        Tcl_AppendToObj(obj, byte, 2);
+    }
+
+}
+
 void mtls_free_config(Tcl_Interp *interp, void *conf);
 
 void mtls_ctx_interp_cleanup(ClientData clientData, Tcl_Interp *interp) {
@@ -601,6 +613,14 @@ int mtls_ctx_get_status(mtls_ctx *ctx, int is_local, Tcl_Obj *obj) {
     Tcl_DictObjPut(ctx->interp, obj, Tcl_NewStringObj("sbits", -1),
         mtls_backend_ctx_get_status(&ctx->backend,
         MTLS_BACKEND_CTX_CHIPHER_KEY_BITLEN));
+
+    Tcl_DictObjPut(ctx->interp, obj, Tcl_NewStringObj("sha1_hash", -1),
+        mtls_backend_ctx_get_status(&ctx->backend,
+        MTLS_BACKEND_CTX_FINGERPRINT_SHA1));
+
+    Tcl_DictObjPut(ctx->interp, obj, Tcl_NewStringObj("sha256_hash", -1),
+        mtls_backend_ctx_get_status(&ctx->backend,
+        MTLS_BACKEND_CTX_FINGERPRINT_SHA256));
 
     UNUSED(obj);
 

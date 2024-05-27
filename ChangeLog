@@ -1,5 +1,6 @@
 2024-05-27 Konstantin Kushnir <chpock@gmail.com>
 	* Create compatibility aliases in ::tls namespace by default
+	* Add sha1_hash and sha256_hash to mtls::status
 
 2024-05-12 Konstantin Kushnir <chpock@gmail.com>
 	* Fix an issue with untrusted certificates with TLS1.3 protocol
