@@ -1,3 +1,6 @@
+2024-06-06 Konstantin Kushnir <chpock@gmail.com>
+	* RELEASE TAG 1.1.0
+
 2024-06-05 Konstantin Kushnir <chpock@gmail.com>
 	* Send complete certificate chain as client cert
 	* Disable badssl tests by default as they are not stable

@@ -1,0 +1,18 @@
+Release version 1.1.0
+
+Notable changes:
+
+1. Fixed the build process to produce a static version of the package.
+
+2. Added support for Tcl 9
+
+3. Fixed handling of connections with untrusted certificates and disabled
+certificate validation when using TLS1.3 protocol.
+
+4. Improved compatibility with tcltls. The ::tls::* aliases for ::mtls::*
+procedures are created automatically when the package is loaded, if
+the ::tls namespace does not exist at the time of loading. This allows
+existing code that is designed to work with tcltls to be used without
+modification. Also added some expected fields to the result of
+the mtls::status command.
+
