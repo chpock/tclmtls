@@ -458,6 +458,30 @@ int mtls_backend_ctx_init(
                 " certificate(s) from the file: %s", err, certfile);
             RETURN(ERROR);
         }
+        if (cafile != NULL) {
+            /*
+               Add the trusted CA to client certificate chain, as SSL servers
+               should provide as much information their certificate's chain
+               as possible. See:
+               https://github.com/Mbed-TLS/mbedtls/issues/5
+
+               Also, tcltls behaves in the same way:
+               https://github.com/chpock/tcltls/blob/5075dde49b132919f1eb4912bf2ccabb974b6d45/generic/tls.c#L2128-L2131
+
+            */
+            INF("load the trusted CA as client cert");
+            mbedtls_x509_crt *cert_cur = &ctx->cacert;
+            int i = 0;
+            while (cert_cur != NULL) {
+                if (cert_cur->raw.p != NULL) {
+                    INF("add CA cert #%d to the client cert chain", i++);
+                    mbedtls_x509_crt_parse_der(&ctx->clicert, cert_cur->raw.p,
+                        cert_cur->raw.len);
+                }
+                cert_cur = cert_cur->next;
+            }
+            UNUSED(i);
+        }
     } else {
         INF("no client certificate file specified");
     }

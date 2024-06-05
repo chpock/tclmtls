@@ -117,9 +117,7 @@ test mtls-basic-2.2 { check that ::tls aliases are not created when namespace ex
 test mtls-basic-3.1 { check mtls::status fields } -constraints client -body {
     set s1 [::mtls::socket google.com 443]
     ::mtls::handshake $s1
-    ::mtls::debug trace trace
     set result [::mtls::status $s1]
-    ::mtls::debug none
     close $s1
     lsort [dict keys $result]
 } -cleanup {

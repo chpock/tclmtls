@@ -43,8 +43,8 @@ proc request { url } {
     return [join $script "\n"]
 }
 
-proc test_request { id url } {
-    return [list test $id $url -body [request $url] -constraints client {*}[result $id]]
+proc test_request { id url {constraints {}} } {
+    return [list test $id $url -body [request $url] -constraints "client $constraints" {*}[result $id]]
 }
 
 proc localIP { ip } {
