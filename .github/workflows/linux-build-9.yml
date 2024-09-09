@@ -1,4 +1,4 @@
-name: Linux
+name: Linux (with Tcl 9.0)
 on: [push]
 permissions:
   contents: read
@@ -9,33 +9,45 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    strategy:
-      matrix:
-        compiler:
-          - "gcc"
-          - "clang"
     steps:
+
+      - name: Checkout Tcl
+        uses: actions/checkout@v4
+        with:
+          repository: tcltk/tcl
+          ref: core-9-0-b3
+          path: tcl
+      - name: Configure Tcl
+        working-directory: tcl/unix
+        run: |
+          ./configure --prefix=$HOME/tcl_install || {
+            cat config.log
+            echo "::error::Failure during Configure Tcl"
+            exit 1
+          }
+      - name: Build Tcl
+        working-directory: tcl/unix
+        run: |
+          make -j || {
+            echo "::error::Failure during Build Tcl"
+            exit 1
+          }
+      - name: Install Tcl
+        working-directory: tcl/unix
+        run: |
+          make install || {
+            echo "::error::Failure during Install Tcl"
+            exit 1
+          }
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Environment (compiler=${{ matrix.compiler }})
-        run: |
-          sudo apt-get install tcl8.6-dev
-          mkdir "$HOME/install dir"
-          curl https://core.tcl-lang.org/tclconfig/tarball/main/tclconfig.tar.gz >tclconfig.tar.gz
-          tar xfz tclconfig.tar.gz
-          echo "CFGOPT=--with-tcl=/usr/lib/tcl8.6" >> $GITHUB_ENV
-          echo "CC=$COMPILER" >> $GITHUB_ENV
-        env:
-          COMPILER: ${{ matrix.compiler }}
-          OPTS: ${{ matrix.compiler }}
-
       - name: Configure
         run: |
-          ./configure $CFGOPT "--prefix=$HOME/install dir" "--exec-prefix=$HOME/install dir" || {
+          ./configure --with-tcl=$HOME/tcl_install/lib "--prefix=$HOME/install dir" "--exec-prefix=$HOME/install dir" || {
             cat config.log
             echo "::error::Failure during Configure"
             exit 1

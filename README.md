@@ -38,7 +38,7 @@ There are also alternatives, but they have their disadvantages:
 ## <a name='::Introduction-Compatibility'></a>Compatibility
 
 This package requires Tcl 8.6 or later. However it has been tested
-with Tcl 8.6.14 and 9.0b2.
+with Tcl 8.6.14 and 9.0b3.
 
 ## <a name='::Introduction-How_to_build'></a>How to build
 
