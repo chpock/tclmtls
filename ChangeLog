@@ -1,3 +1,6 @@
+2024-09-09 Konstantin Kushnir <chpock@gmail.com>
+	* Provide compatibility with Tcl9.0b3
+
 2024-06-06 Konstantin Kushnir <chpock@gmail.com>
 	* Bumped version to 1.2.0
 
