@@ -48,7 +48,7 @@ test mtls-basic-1.1 { check that mtls::import preserves options } -constraints c
 
 test mtls-basic-1.2 { check that mtls::import preserves options } -constraints client -body {
     set s1 [socket google.com 443]
-    chan configure $s1 -blocking 0 -buffering none -buffersize 12345 -encoding binary -eofchar Z -translation binary
+    chan configure $s1 -blocking 0 -buffering none -buffersize 12345 -encoding iso8859-1 -eofchar Z -translation binary
     set opts1 [chan configure $s1]
     set s2 [::mtls::import $s1]
     set opts2 [chan configure $s2]
