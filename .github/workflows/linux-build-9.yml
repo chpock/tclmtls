@@ -54,7 +54,7 @@ jobs:
           }
       - name: Build
         run: |
-          make -j || {
+          make || {
             echo "::error::Failure during Build"
             exit 1
           }
