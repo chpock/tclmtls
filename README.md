@@ -109,6 +109,11 @@ There are packages for the following platforms:
 - **MacOS x86** and **x86\_64**: built and tested on MacOS 10.12. However, these packages should be compatible with MacOS as of version 10.6.
 
 
+RPM spec file for openSUSE is available on
+[https://build.opensuse.org/package/show/home:jkandz/tclmtls](https://build.opensuse.org/package/show/home:jkandz/tclmtls).
+Binary packages for openSUSE for various platforms are available on
+[openSUSE build service](https://software.opensuse.org//download.html?project=home%3Ajkandz&package=tclmtls)
+
 ## <a name='::Introduction-Copyrights'></a>Copyrights
 
 Copyright (C) 2024 Konstantin Kushnir <chpock@gmail.com>
