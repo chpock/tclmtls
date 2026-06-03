@@ -88,14 +88,25 @@ static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
 static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
     ENTER(mbedtls_set_default_ca, ctx->interp);
 
+    // Read both the local-machine and current-user stores. On Windows the
+    // current-user store inherits the local-machine certs; reading both also
+    // covers user-added roots and environments (e.g. Wine) that only populate
+    // the local-machine store.
+    static const struct { DWORD location; const char *label; }
+        store_locations[] = {
+            { CERT_SYSTEM_STORE_LOCAL_MACHINE, "local machine" },
+            { CERT_SYSTEM_STORE_CURRENT_USER,  "current user"  }
+        };
     static const char* store_names[] = { "ROOT", "CA" };
 
+    for (unsigned int location = 0; location < 2; location++) {
     for (unsigned int store_name = 0; store_name < 2; store_name++) {
 
-        INF("start adding certs from store [%s]", store_names[store_name]);
+        INF("start adding certs from store [%s] of [%s]",
+            store_names[store_name], store_locations[location].label);
         HCERTSTORE store = CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, 0,
             CERT_STORE_OPEN_EXISTING_FLAG | CERT_STORE_READONLY_FLAG |
-            CERT_STORE_SHARE_CONTEXT_FLAG | CERT_SYSTEM_STORE_CURRENT_USER,
+            CERT_STORE_SHARE_CONTEXT_FLAG | store_locations[location].location,
             store_names[store_name]);
 
         if (store == NULL) {
@@ -153,6 +164,7 @@ static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
 
         CertCloseStore(store, 0);
 
+    }
     }
 
     RETURN();
