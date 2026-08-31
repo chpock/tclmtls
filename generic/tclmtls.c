@@ -1598,6 +1598,8 @@ DLLEXPORT int Mtls_Init(Tcl_Interp* interp) {
     }
 
 
+    mtls_register_crypto_commands(interp);
+
     DBG("initialization: done");
     RETURN(OK);
 }

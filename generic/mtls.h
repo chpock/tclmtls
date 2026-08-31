@@ -69,6 +69,11 @@ int mtls_get_ciphers(Tcl_Interp *interp, mtls_protocol protocol,
     int verbose, int supported, Tcl_Obj *obj);
 int mtls_get_version(Tcl_Interp *interp, Tcl_Obj *obj);
 
+/* crypto.c: generic-purpose commands (not tied to a TLS connection),
+ * exposed for callers that just want a CSPRNG and AES-256-GCM on top of
+ * the mbedtls this package already links. */
+void mtls_register_crypto_commands(Tcl_Interp *interp);
+
 void mtls_string_to_hex(char *buf, int len, Tcl_Obj *obj);
 
 int mtls_bio_write(void *bio, const unsigned char *buf, size_t blen);
