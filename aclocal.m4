@@ -147,6 +147,7 @@ AC_DEFUN([TCLMTLS_CHECK_MBEDTLS], [
         TEA_ADD_LIBS([-lmbedtls -lmbedx509 -lmbedcrypto])
 
         TEA_ADD_SOURCES([backend-mbedtls.c])
+        TEA_ADD_SOURCES([crypto.c])
         AC_DEFINE(USE_MBEDTLS)
         mtlsbackend="mbedtls"
     fi
@@ -179,6 +180,9 @@ AC_DEFUN([TCLMTLS_CHECK_DEFAULT_BACKEND], [
             TEA_ADD_LIBS([-lbcrypt -lws2_32])
         fi
         TEA_ADD_SOURCES([backend-mbedtls.c])
+        # Generic ::mtls::randombytes/aesgcm-* commands - not TLS backend
+        # proper, kept in their own file, but only built when mbedtls is.
+        TEA_ADD_SOURCES([crypto.c])
         TEA_ADD_INCLUDES([-I\"`${CYGPATH} ${srcdir}/mbedtls/include`\" -I\"`${CYGPATH} ${srcdir}/generic`\"])
 
         # libmbedtls.a
