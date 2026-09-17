@@ -170,6 +170,145 @@ static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
     RETURN();
 }
 
+// Windows ships few roots and fetches the rest on demand when CryptoAPI
+// builds a chain. Enumerating the stores above never triggers that, so on a
+// fresh install most public CAs are missing. This callback has CryptoAPI
+// verify the chain instead, which also honours roots Windows has distrusted;
+// mbedTLS still does the signature, date and hostname checks.
+//
+// mbedTLS calls the callback per certificate from the top of the chain down,
+// ORing the flags left after each call. NOT_TRUSTED is cleared wherever it
+// lands and decided by CryptoAPI at the leaf (depth 0), where the presented
+// chain hangs off crt->next.
+
+static WCHAR *mbedtls_windows_wide(const char *utf8) {
+    int len = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, NULL, 0);
+    if (len <= 0) {
+        return NULL;
+    }
+    WCHAR *wide = (WCHAR *)ckalloc(len * sizeof(WCHAR));
+    if (MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, len) <= 0) {
+        ckfree(wide);
+        return NULL;
+    }
+    return wide;
+}
+
+static int mbedtls_windows_chain_trusted(mtls_backend_ctx *ctx,
+    mbedtls_x509_crt *leaf)
+{
+    ENTER(windows_chain_trusted, ctx->interp);
+
+    int trusted = 0;
+    PCCERT_CONTEXT cert = NULL;
+    HCERTSTORE extra = NULL;
+    PCCERT_CHAIN_CONTEXT chain = NULL;
+    WCHAR *servername = NULL;
+
+    cert = CertCreateCertificateContext(X509_ASN_ENCODING, leaf->raw.p,
+        (DWORD)leaf->raw.len);
+    if (cert == NULL) {
+        WRN("failed to create the certificate context: %lu", GetLastError());
+        goto done;
+    }
+
+    // Intermediates the peer sent.
+    extra = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0, 0, NULL);
+    if (extra == NULL) {
+        WRN("failed to open a memory store: %lu", GetLastError());
+        goto done;
+    }
+    for (mbedtls_x509_crt *crt = leaf->next; crt != NULL; crt = crt->next) {
+        if (!CertAddEncodedCertificateToStore(extra, X509_ASN_ENCODING,
+            crt->raw.p, (DWORD)crt->raw.len, CERT_STORE_ADD_ALWAYS, NULL))
+        {
+            WRN("failed to add an intermediate to the store: %lu",
+                GetLastError());
+        }
+    }
+
+    LPSTR usage = ctx->is_server ?
+        szOID_PKIX_KP_CLIENT_AUTH : szOID_PKIX_KP_SERVER_AUTH;
+    CERT_CHAIN_PARA para;
+    memset(&para, 0, sizeof(para));
+    para.cbSize = sizeof(para);
+    para.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
+    para.RequestedUsage.Usage.cUsageIdentifier = 1;
+    para.RequestedUsage.Usage.rgpszUsageIdentifier = &usage;
+
+    // No revocation flags: the other platforms do not check it either.
+    if (!CertGetCertificateChain(NULL, cert, NULL, extra, &para, 0, NULL,
+        &chain))
+    {
+        WRN("failed to build the certificate chain: %lu", GetLastError());
+        goto done;
+    }
+
+    SSL_EXTRA_CERT_CHAIN_POLICY_PARA ssl_para;
+    memset(&ssl_para, 0, sizeof(ssl_para));
+    ssl_para.cbSize = sizeof(ssl_para);
+    ssl_para.dwAuthType = ctx->is_server ? AUTHTYPE_CLIENT : AUTHTYPE_SERVER;
+    // NULL skips the name check, as mbedTLS skips verification without one.
+    if (ctx->servername != NULL) {
+        servername = mbedtls_windows_wide(ctx->servername);
+        ssl_para.pwszServerName = servername;
+    }
+
+    CERT_CHAIN_POLICY_PARA policy;
+    memset(&policy, 0, sizeof(policy));
+    policy.cbSize = sizeof(policy);
+    policy.pvExtraPolicyPara = &ssl_para;
+
+    CERT_CHAIN_POLICY_STATUS status;
+    memset(&status, 0, sizeof(status));
+    status.cbSize = sizeof(status);
+
+    if (!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain,
+        &policy, &status))
+    {
+        WRN("failed to verify the chain policy: %lu", GetLastError());
+        goto done;
+    }
+    if (status.dwError != 0) {
+        WRN("chain rejected: policy error 0x%08lx, chain status 0x%08lx",
+            (unsigned long)status.dwError,
+            (unsigned long)chain->TrustStatus.dwErrorStatus);
+        goto done;
+    }
+
+    INF("chain trusted by CryptoAPI");
+    trusted = 1;
+
+done:
+    if (servername != NULL) {
+        ckfree(servername);
+    }
+    if (chain != NULL) {
+        CertFreeCertificateChain(chain);
+    }
+    if (extra != NULL) {
+        CertCloseStore(extra, 0);
+    }
+    if (cert != NULL) {
+        CertFreeCertificateContext(cert);
+    }
+    RETURN(INT, trusted);
+}
+
+static int mbedtls_windows_verify(void *p, mbedtls_x509_crt *crt, int depth,
+    uint32_t *flags)
+{
+    mtls_backend_ctx *ctx = (mtls_backend_ctx *)p;
+    ENTER(windows_verify, ctx->interp);
+
+    *flags &= ~MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+    if (depth == 0 && !mbedtls_windows_chain_trusted(ctx, crt)) {
+        *flags |= MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+    }
+
+    RETURN(INT, 0);
+}
+
 #else
 
 static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
@@ -355,6 +494,10 @@ int mtls_backend_ctx_init(
     ctx->interp = interp;
     ctx->ciphers = NULL;
     ctx->alpnlen = 0;
+#if defined(_WIN32)
+    ctx->servername = NULL;
+    ctx->is_server = server;
+#endif /* _WIN32 */
 
     // Make sure memory references are valid in case we exit early
 #ifndef TCL_THREADS
@@ -438,6 +581,12 @@ int mtls_backend_ctx_init(
 
     INF("add CA/crl to config");
     mbedtls_ssl_conf_ca_chain(&ctx->config, &ctx->cacert, &ctx->crl);
+#if defined(_WIN32)
+    if (cafile == NULL && cadir == NULL) {
+        INF("verify chains through CryptoAPI");
+        mbedtls_ssl_conf_verify(&ctx->config, mbedtls_windows_verify, ctx);
+    }
+#endif /* _WIN32 */
 
     /* Load the client certificate */
     if (cert != NULL) {
@@ -662,6 +811,10 @@ int mtls_backend_ctx_init(
             mbedtls_ctx_set_error_code(ctx, err);
             RETURN(ERROR);
         }
+#if defined(_WIN32)
+        ctx->servername = (char *)ckalloc(strlen(servername) + 1);
+        strcpy(ctx->servername, servername);
+#endif /* _WIN32 */
     } else {
         WRN("no hostname specified, certificate verification will be skipped");
     }
@@ -987,6 +1140,11 @@ int mtls_backend_ctx_free(mtls_backend_ctx *ctx) {
 #ifdef MTLS_ENABLE_SERVER
     mbedtls_dhm_free(&ctx->dhm);
 #endif /* MTLS_ENABLE_SERVER */
+#if defined(_WIN32)
+    if (ctx->servername != NULL) {
+        ckfree(ctx->servername);
+    }
+#endif /* _WIN32 */
 
     if (ctx->ciphers != NULL) {
         ckfree(ctx->ciphers);

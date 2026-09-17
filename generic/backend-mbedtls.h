@@ -69,6 +69,11 @@ typedef struct mtls_backend_ctx {
     int *ciphers;
     const char **alpn;
     int alpnlen;
+#if defined(_WIN32)
+    // For the CryptoAPI verify callback
+    char *servername;
+    int is_server;
+#endif
 
 } mtls_backend_ctx;
 
