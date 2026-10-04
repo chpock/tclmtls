@@ -26,7 +26,7 @@ There are also alternatives, but they have their disadvantages:
 
 - uses the [mbedTLS](https://github.com/Mbed-TLS/mbedtls) library with minimal size
 - interface is compatible with tcltls, most of the existing code will work as is, without modifications
-- uses CA certificates from the operating system on Linux/Windows/MacOS/Haiku platforms
+- uses CA certificates from the operating system on Linux/Windows/MacOS/OpenBSD/FreeBSD/Haiku platforms
 - uses only modern TLS1.2/TLS1.3 protocols, which are more than sufficient for successful connections to most services
 - certificate and hostname verification, SNI are enabled by default
 - multi-platform, Linux/Windows/MacOS supported
