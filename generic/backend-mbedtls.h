@@ -113,6 +113,9 @@ int mtls_backend_ctx_init(
 );
 int mtls_backend_ctx_connect(mtls_backend_ctx *ctx);
 int mtls_backend_ctx_close(mtls_backend_ctx *ctx);
+int mtls_backend_ctx_export_keying_material(mtls_backend_ctx *ctx,
+    unsigned char *out, size_t len, const char *label, size_t label_len,
+    const unsigned char *context, size_t context_len, int use_context);
 int mtls_backend_ctx_free(mtls_backend_ctx *ctx);
 int mtls_backend_ctx_read(mtls_backend_ctx *ctx, char *buf, int bufSize,
     int *errorCodePtr);

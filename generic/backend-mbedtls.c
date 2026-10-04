@@ -1117,6 +1117,20 @@ no_cert_avail:
     RETURN(PTR, obj);
 }
 
+int mtls_backend_ctx_export_keying_material(mtls_backend_ctx *ctx,
+    unsigned char *out, size_t len, const char *label, size_t label_len,
+    const unsigned char *context, size_t context_len, int use_context)
+{
+#if defined(MBEDTLS_SSL_KEYING_MATERIAL_EXPORT)
+    return mbedtls_ssl_export_keying_material(&ctx->ssl, out, len, label,
+        label_len, context, context_len, use_context);
+#else
+    UNUSED(ctx); UNUSED(out); UNUSED(len); UNUSED(label); UNUSED(label_len);
+    UNUSED(context); UNUSED(context_len); UNUSED(use_context);
+    return MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE;
+#endif
+}
+
 int mtls_backend_ctx_close(mtls_backend_ctx *ctx) {
     ENTER(backend_ctx_close, ctx->interp);
     mbedtls_ssl_close_notify(&ctx->ssl);
