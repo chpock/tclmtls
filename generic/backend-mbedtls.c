@@ -309,6 +309,74 @@ static int mbedtls_windows_verify(void *p, mbedtls_x509_crt *crt, int depth,
     RETURN(INT, 0);
 }
 
+#elif defined(__HAIKU__)
+
+#include <FindDirectory.h>
+#include <stdio.h>
+#include <sys/stat.h>
+
+/*
+ * Haiku keeps the system roots in one packaged, read-only bundle under the
+ * system data directory (the ca_root_certificates package), and lets the user
+ * add their own as files under the non-packaged data directory. That is the
+ * same pair HaikuPorts' OpenSSL and the Network Kit's BSecureSocket trust:
+ *
+ *   <B_SYSTEM_DATA_DIRECTORY>/ssl/CARootCertificates.pem
+ *   <B_SYSTEM_NONPACKAGED_DATA_DIRECTORY>/ssl/certs/
+ */
+static void mbedtls_load_ca(mtls_backend_ctx *ctx, directory_which which,
+    const char *leaf, int is_dir)
+{
+    ENTER(mbedtls_load_ca, ctx->interp);
+
+    char path[B_PATH_NAME_LENGTH];
+    if (find_directory(which, -1, false, path, sizeof(path)) != B_OK) {
+        WRN("no directory for [%s]", leaf);
+        RETURN();
+    }
+    size_t len = strlen(path);
+    if ((size_t)snprintf(path + len, sizeof(path) - len, "%s", leaf)
+        >= sizeof(path) - len)
+    {
+        WRN("path too long for [%s]", leaf);
+        RETURN();
+    }
+
+    struct stat st;
+    if (stat(path, &st) != 0 || (is_dir ? !S_ISDIR(st.st_mode)
+        : !S_ISREG(st.st_mode)))
+    {
+        INF("no CA certs at [%s]", path);
+        RETURN();
+    }
+
+    INF("load CA certs from [%s]", path);
+    int err = is_dir ? mbedtls_x509_crt_parse_path(&ctx->cacert, path)
+        : mbedtls_x509_crt_parse_file(&ctx->cacert, path);
+    if (err < 0) {
+        char buff[128];
+        mbedtls_strerror(err, buff, 128);
+        WRN("error while loading: %s", buff);
+    } else if (err > 0) {
+        WRN("failed to load %d certificate(s)", err);
+    } else {
+        INF("CA certs successfully loaded");
+    }
+
+    RETURN();
+}
+
+static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
+    ENTER(mbedtls_set_default_ca, ctx->interp);
+
+    mbedtls_load_ca(ctx, B_SYSTEM_DATA_DIRECTORY,
+        "/ssl/CARootCertificates.pem", 0);
+    mbedtls_load_ca(ctx, B_SYSTEM_NONPACKAGED_DATA_DIRECTORY,
+        "/ssl/certs", 1);
+
+    RETURN();
+}
+
 #else
 
 static void mbedtls_set_system_ca_crl(mtls_backend_ctx *ctx) {
