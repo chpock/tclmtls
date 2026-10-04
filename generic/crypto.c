@@ -2,7 +2,8 @@
  * crypto.c --
  *
  *      Generic-purpose Tcl commands (::mtls::randombytes, ::mtls::aesgcm-
- *      encrypt, ::mtls::aesgcm-decrypt) built on the mbedtls this package
+ *      encrypt, ::mtls::aesgcm-decrypt, ::mtls::pbkdf2) built on the mbedtls
+ *      this package
  *      already links for TLS. Not tied to a socket/connection, so they get
  *      their own lazily-seeded CTR_DRBG rather than reusing backend-mbedtls.c's
  *      connection-scoped entropy plumbing.
@@ -17,11 +18,16 @@
 #include <mbedtls/gcm.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
+#include <mbedtls/md.h>
+#include <mbedtls/pkcs5.h>
+#include <mbedtls/platform_util.h>
 
 #define MTLS_CRYPTO_KEY_LEN     32
 #define MTLS_CRYPTO_NONCE_LEN   12
 #define MTLS_CRYPTO_TAG_LEN     16
 #define MTLS_CRYPTO_MAX_RANDOM  (1024 * 1024)
+#define MTLS_CRYPTO_MAX_ITER    10000000
+#define MTLS_CRYPTO_MAX_DERIVED 64
 
 static mbedtls_entropy_context crypto_entropy;
 static mbedtls_ctr_drbg_context crypto_ctr_drbg;
@@ -241,6 +247,83 @@ static int mtls_cmd_aesgcm_decrypt(ClientData clientData, Tcl_Interp *interp,
     RETURN(OK);
 }
 
+/* ::mtls::pbkdf2 digest password salt iterations length
+ * PBKDF2 (RFC 8018) with HMAC over digest: sha1, sha256 or sha512. Returns
+ * length bytes of derived key. */
+static int mtls_cmd_pbkdf2(ClientData clientData, Tcl_Interp *interp,
+    int objc, Tcl_Obj *const objv[])
+{
+    UNUSED(clientData);
+    ENTER(cmd_pbkdf2, interp);
+
+    if (objc != 6) {
+        Tcl_WrongNumArgs(interp, 1, objv,
+            "digest password salt iterations length");
+        RETURN(ERROR);
+    }
+
+    static const char *const digests[] = { "sha1", "sha256", "sha512", NULL };
+    static const mbedtls_md_type_t mdTypes[] = {
+        MBEDTLS_MD_SHA1, MBEDTLS_MD_SHA256, MBEDTLS_MD_SHA512
+    };
+    int digestIdx;
+    if (Tcl_GetIndexFromObj(interp, objv[1], digests, "digest", 0,
+        &digestIdx) != TCL_OK)
+    {
+        RETURN(ERROR);
+    }
+
+    Tcl_Size pwLen;
+    unsigned char *pw = Tcl_GetBytesFromObj(interp, objv[2], &pwLen);
+    if (pw == NULL) {
+        RETURN(ERROR);
+    }
+
+    Tcl_Size saltLen;
+    unsigned char *salt = Tcl_GetBytesFromObj(interp, objv[3], &saltLen);
+    if (salt == NULL) {
+        RETURN(ERROR);
+    }
+
+    Tcl_WideInt iterations;
+    if (Tcl_GetWideIntFromObj(interp, objv[4], &iterations) != TCL_OK) {
+        RETURN(ERROR);
+    }
+    if (iterations < 1 || iterations > MTLS_CRYPTO_MAX_ITER) {
+        SET_RESULT(FORMAT, "iterations must be between 1 and %d",
+            MTLS_CRYPTO_MAX_ITER);
+        SET_ERROR("CRYPTO", "RANGE");
+        RETURN(ERROR);
+    }
+
+    Tcl_WideInt length;
+    if (Tcl_GetWideIntFromObj(interp, objv[5], &length) != TCL_OK) {
+        RETURN(ERROR);
+    }
+    if (length < 1 || length > MTLS_CRYPTO_MAX_DERIVED) {
+        SET_RESULT(FORMAT, "length must be between 1 and %d",
+            MTLS_CRYPTO_MAX_DERIVED);
+        SET_ERROR("CRYPTO", "RANGE");
+        RETURN(ERROR);
+    }
+
+    unsigned char out[MTLS_CRYPTO_MAX_DERIVED];
+    int ret = mbedtls_pkcs5_pbkdf2_hmac_ext(mdTypes[digestIdx], pw,
+        (size_t)pwLen, salt, (size_t)saltLen, (unsigned int)iterations,
+        (uint32_t)length, out);
+    if (ret != 0) {
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+            "PBKDF2 failed: -0x%04x", -ret));
+        SET_ERROR("CRYPTO", "PBKDF2");
+        RETURN(ERROR);
+    }
+
+    Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(out, (Tcl_Size)length));
+    mbedtls_platform_zeroize(out, sizeof(out));
+
+    RETURN(OK);
+}
+
 void mtls_register_crypto_commands(Tcl_Interp *interp) {
     Tcl_CreateObjCommand(interp, "::mtls::randombytes",
         (Tcl_ObjCmdProc *)mtls_cmd_randombytes, NULL, NULL);
@@ -248,4 +331,6 @@ void mtls_register_crypto_commands(Tcl_Interp *interp) {
         (Tcl_ObjCmdProc *)mtls_cmd_aesgcm_encrypt, NULL, NULL);
     Tcl_CreateObjCommand(interp, "::mtls::aesgcm-decrypt",
         (Tcl_ObjCmdProc *)mtls_cmd_aesgcm_decrypt, NULL, NULL);
+    Tcl_CreateObjCommand(interp, "::mtls::pbkdf2",
+        (Tcl_ObjCmdProc *)mtls_cmd_pbkdf2, NULL, NULL);
 }
