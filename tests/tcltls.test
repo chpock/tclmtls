@@ -965,17 +965,22 @@ test tlsIO-8.1 {testing -async flag on sockets} -constraints { client server not
     after cancel $timer
     # TLS handshaking needs one byte from the client...
     puts $s1 a
-    # need update to complete TLS handshake in-process
-    update
-    fconfigure $s1 -blocking 1
-    set z [gets $s1]
+    # The server runs in this process, so the handshake can only complete
+    # in the event loop: read the reply from there, without blocking.
+    fileevent $s1 readable {
+        if { [gets $s1 line] >= 0 } { set x $line } elseif { [eof $s1] } { set x eof }
+    }
+    set timer [after 10000 [list set x timeout]]
+    vwait x
+    after cancel $timer
+    set z $x
     close $s
     close $s1
     set z
 } -result bye -cleanup {
     catch { close $s }
     catch { close $s1 }
-    unset -nocomplain s s1 x timer z
+    unset -nocomplain s s1 x timer z line
     rename accept {}
 }
 
