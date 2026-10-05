@@ -45,6 +45,12 @@ typedef struct mtls_ctx {
     int watchMask;
     Tcl_TimerToken timer;
 
+    /* What the channel above asked to watch, and which way an unfinished
+     * handshake has to go next (TCL_READABLE or TCL_WRITABLE, 0 when it
+     * isn't waiting on the socket). */
+    int upperMask;
+    int handshakeWant;
+
     int flags;
     mtls_ctx_state state;
     mtls_ctx_error error;

@@ -857,10 +857,11 @@ int mtls_backend_ctx_init(
 
 }
 
-int mtls_backend_ctx_connect(mtls_backend_ctx *ctx) {
+int mtls_backend_ctx_connect(mtls_backend_ctx *ctx, int *want) {
     ENTER(backend_ctx_connect, ctx->interp);
 
     int ret;
+    *want = 0;
 
     INF("try handshake...");
 
@@ -875,11 +876,13 @@ int mtls_backend_ctx_connect(mtls_backend_ctx *ctx) {
 
     if (ret == MBEDTLS_ERR_SSL_WANT_READ) {
         DBG("returned: WANT_READ");
+        *want = TCL_READABLE;
         RETURN(CONTINUE);
     }
 
     if (ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
         DBG("returned: WANT_WRITE");
+        *want = TCL_WRITABLE;
         RETURN(CONTINUE);
     }
 

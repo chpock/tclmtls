@@ -418,6 +418,8 @@ int mtls_ctx_init(
     ctx->tcl_config = NULL;
     ctx->watchMask = 0;
     ctx->timer = NULL;
+    ctx->upperMask = 0;
+    ctx->handshakeWant = 0;
     ctx->state = MTLS_CTX_STATE_PREINIT;
     ctx->upstream_chan = upstream_chan;
     ctx->interp = interp;
@@ -493,11 +495,12 @@ int mtls_ctx_connect(mtls_ctx *ctx) {
 
     ctx->state = MTLS_CTX_STATE_HANDSHAKE;
 
-    int res = mtls_backend_ctx_connect(&ctx->backend);
+    int res = mtls_backend_ctx_connect(&ctx->backend, &ctx->handshakeWant);
 
     if (res == TCL_OK) {
         // Everything is ok. Handshake was successful.
         ctx->state = MTLS_CTX_STATE_CONNECTED;
+        ctx->handshakeWant = 0;
         RETURN(OK);
     } else if (res == TCL_CONTINUE) {
         // Everything is not ok. We need something else to complete

@@ -38,6 +38,44 @@ static int mtls_Close2Proc(ClientData instanceData, Tcl_Interp *interp,
     RETURN(POSIX_EINVAL);
 }
 
+/*
+ * The socket events to watch for what the channel above wants. While a
+ * handshake waits for the peer, only incoming data can move it on: watching
+ * the socket for WRITABLE then (a connected socket always is) would wake the
+ * writer above every time round the event loop, its write would fail with
+ * EAGAIN again, and the loop would spin until the peer answers.
+ */
+static int mtls_UpstreamMask(mtls_ctx *ctx, int mask) {
+    if (mask != 0 && ctx->state == MTLS_CTX_STATE_HANDSHAKE
+        && ctx->handshakeWant == TCL_READABLE)
+    {
+        return TCL_READABLE;
+    }
+    return mask;
+}
+
+static void mtls_UpdateUpstreamWatch(mtls_ctx *ctx) {
+    Tcl_DriverWatchProc *watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(
+        ctx->upstream_chan));
+    watchProc(Tcl_GetChannelInstanceData(ctx->upstream_chan),
+        mtls_UpstreamMask(ctx, ctx->upperMask));
+}
+
+/*
+ * Runs a handshake step on behalf of a read or a write. When the handshake
+ * settles one way or the other, the socket goes back to watching exactly
+ * what the channel above asked for.
+ */
+static int mtls_Connect(mtls_ctx *ctx) {
+    mtls_ctx_state state = ctx->state;
+    int want = ctx->handshakeWant;
+    int conn = mtls_ctx_connect(ctx);
+    if (ctx->state != state || ctx->handshakeWant != want) {
+        mtls_UpdateUpstreamWatch(ctx);
+    }
+    return conn;
+}
+
 static int mtls_InputProc(ClientData instanceData, char *buf, int bufSize,
     int *errorCodePtr)
 {
@@ -95,7 +133,7 @@ again:
     *errorCodePtr = 0;
     int read = 0;
 
-    int conn = mtls_ctx_connect(ctx);
+    int conn = mtls_Connect(ctx);
 
     if (conn == TCL_CONTINUE) {
         // Handshake is not completed. Let's try again later.
@@ -156,7 +194,7 @@ static int mtls_OutputProc(ClientData instanceData, const char *buf,
     *errorCodePtr = 0;
     int written = 0;
 
-    int conn = mtls_ctx_connect(ctx);
+    int conn = mtls_Connect(ctx);
 
     if (conn == TCL_CONTINUE) {
         // Handshake is not completed. Let's try again later.
@@ -317,7 +355,13 @@ static int mtls_HandlerProc(ClientData instanceData, int mask) {
            Tcl_GetChannelName(ctx->self_chan));
     }
 
-    if (ctx->watchMask & mask) {
+    // Mid-handshake, incoming data is what a writer above is waiting for
+    // too: its retried write is what drives the handshake on.
+    if ((mask & TCL_READABLE) && ctx->state == MTLS_CTX_STATE_HANDSHAKE) {
+        mask |= (ctx->upperMask & TCL_WRITABLE);
+    }
+
+    if ((ctx->watchMask & mask) == mask) {
         DBG("the event is already queued, ignore it");
         RETURN(0);
     }
@@ -353,12 +397,11 @@ static void mtls_WatchProc(ClientData instanceData, int mask) {
            Tcl_GetChannelName(ctx->self_chan));
     }
 
-    Tcl_DriverWatchProc *watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(
-        ctx->upstream_chan));
+    ctx->upperMask = mask;
 
     TRC("register watch callback on the upstream channel (%p)",
         ctx->upstream_chan);
-    watchProc(Tcl_GetChannelInstanceData(ctx->upstream_chan), mask);
+    mtls_UpdateUpstreamWatch(ctx);
 
     RETURN();
 }
