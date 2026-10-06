@@ -111,7 +111,7 @@ int mtls_backend_ctx_init(
     int tls1_2,
     int tls1_3
 );
-int mtls_backend_ctx_connect(mtls_backend_ctx *ctx);
+int mtls_backend_ctx_connect(mtls_backend_ctx *ctx, int *want);
 int mtls_backend_ctx_close(mtls_backend_ctx *ctx);
 int mtls_backend_ctx_free(mtls_backend_ctx *ctx);
 int mtls_backend_ctx_read(mtls_backend_ctx *ctx, char *buf, int bufSize,
