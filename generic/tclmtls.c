@@ -630,6 +630,88 @@ static int mtls_cmd_handshake(ClientData clientData, Tcl_Interp *interp,
     return 0;
 }
 
+#ifndef MBEDTLS_SSL_EXPORT_MAX_KEY_LEN
+#define MBEDTLS_SSL_EXPORT_MAX_KEY_LEN 8160
+#endif
+
+/* ::mtls::exporter channel label length ?context?
+ * RFC 5705 / RFC 8446 7.5 keying material exporter on a channel whose
+ * handshake has completed. Without context, TLS 1.2 uses "no context". */
+static int mtls_cmd_exporter(ClientData clientData, Tcl_Interp *interp,
+    int objc, Tcl_Obj *const objv[])
+{
+    UNUSED(clientData);
+    ENTER(cmd_exporter, interp);
+
+    if (objc != 4 && objc != 5) {
+        Tcl_WrongNumArgs(interp, 1, objv, "channel label length ?context?");
+        RETURN(ERROR);
+    }
+
+    Tcl_Channel chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
+    if (chan == NULL) {
+        SET_RESULT(FORMAT, "invalid channel \"%s\" specified",
+            Tcl_GetString(objv[1]));
+        SET_ERROR("WRONGARGS");
+        RETURN(ERROR);
+    }
+
+    chan = Tcl_GetTopChannel(chan);
+    if (Tcl_GetChannelType(chan) != mtls_ChannelType()) {
+        SET_RESULT(FORMAT, "bad channel \"%s\": not a TLS channel",
+            Tcl_GetString(objv[1]));
+        SET_ERROR("WRONGARGS");
+        RETURN(ERROR);
+    }
+
+    mtls_ctx *ctx = (mtls_ctx *)Tcl_GetChannelInstanceData(chan);
+    if (ctx->state != MTLS_CTX_STATE_CONNECTED) {
+        SET_RESULT(STRING, "the TLS handshake has not completed");
+        SET_ERROR("WRONGSTATE");
+        RETURN(ERROR);
+    }
+
+    Tcl_Size labelLen;
+    const char *label = Tcl_GetStringFromObj(objv[2], &labelLen);
+
+    Tcl_WideInt length;
+    if (Tcl_GetWideIntFromObj(interp, objv[3], &length) != TCL_OK) {
+        RETURN(ERROR);
+    }
+    if (length < 1 || length > MBEDTLS_SSL_EXPORT_MAX_KEY_LEN) {
+        SET_RESULT(FORMAT, "length must be between 1 and %d",
+            MBEDTLS_SSL_EXPORT_MAX_KEY_LEN);
+        SET_ERROR("WRONGARGS");
+        RETURN(ERROR);
+    }
+
+    const unsigned char *context = NULL;
+    Tcl_Size contextLen = 0;
+    if (objc == 5) {
+        context = Tcl_GetBytesFromObj(interp, objv[4], &contextLen);
+        if (context == NULL) {
+            RETURN(ERROR);
+        }
+    }
+
+    unsigned char *out = (unsigned char *)Tcl_Alloc((unsigned int)length);
+    int ret = mtls_backend_ctx_export_keying_material(&ctx->backend, out,
+        (size_t)length, label, (size_t)labelLen, context, (size_t)contextLen,
+        objc == 5);
+    if (ret != 0) {
+        Tcl_Free((char *)out);
+        Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+            "keying material export failed: -0x%04x", -ret));
+        SET_ERROR("INTERNAL");
+        RETURN(ERROR);
+    }
+
+    Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(out, (Tcl_Size)length));
+    Tcl_Free((char *)out);
+
+    RETURN(OK);
+}
+
 static int mtls_cmd_init(ClientData clientData, Tcl_Interp *interp,
     int objc, Tcl_Obj *const objv[])
 {
@@ -1554,6 +1636,9 @@ DLLEXPORT int Mtls_Init(Tcl_Interp* interp) {
         Tcl_CreateAlias(interp, "::tls::handshake", interp,
             "::mtls::handshake", 0, NULL);
     }
+
+    Tcl_CreateObjCommand(interp, "::mtls::exporter",
+        (Tcl_ObjCmdProc *)mtls_cmd_exporter, conf, NULL);
 
     Tcl_CreateObjCommand(interp, "::mtls::debug",
         (Tcl_ObjCmdProc *)mtls_cmd_debug, conf, NULL);

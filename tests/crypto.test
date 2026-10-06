@@ -1,0 +1,95 @@
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require mtls
+
+source [file join [testsDirectory] helper.tcl]
+
+set selfsignedCert [file join [testsDirectory] certs selfsigned-cert.pem]
+set selfsignedKey  [file join [testsDirectory] certs selfsigned-key.pem]
+
+set port [random_port]
+
+# RFC 6070
+test mtls-crypto-pbkdf2-1.1 {PBKDF2-HMAC-SHA1, 1 iteration} -body {
+    binary encode hex [mtls::pbkdf2 sha1 password salt 1 20]
+} -result 0c60c80f961f0e71f3a9b524af6012062fe037a6
+
+test mtls-crypto-pbkdf2-1.2 {PBKDF2-HMAC-SHA1, 4096 iterations} -body {
+    binary encode hex [mtls::pbkdf2 sha1 password salt 4096 20]
+} -result 4b007901b765489abead49d926f721d065a429c1
+
+test mtls-crypto-pbkdf2-1.3 {PBKDF2-HMAC-SHA1, NUL bytes in password and salt} -body {
+    binary encode hex [mtls::pbkdf2 sha1 "pass\0word" "sa\0lt" 4096 16]
+} -result 56fa6aa75548099dcc37d7f03425e0c3
+
+# RFC 7914 section 11
+test mtls-crypto-pbkdf2-1.4 {PBKDF2-HMAC-SHA256} -body {
+    binary encode hex [mtls::pbkdf2 sha256 passwd salt 1 64]
+} -result 55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783
+
+test mtls-crypto-pbkdf2-1.5 {PBKDF2-HMAC-SHA512 output length} -body {
+    string length [mtls::pbkdf2 sha512 password salt 2 64]
+} -result 64
+
+test mtls-crypto-pbkdf2-2.1 {unknown digest} -body {
+    mtls::pbkdf2 md5 password salt 1 16
+} -returnCodes error -result {bad digest "md5": must be sha1, sha256, or sha512}
+
+test mtls-crypto-pbkdf2-2.2 {iterations out of range} -body {
+    mtls::pbkdf2 sha1 password salt 0 20
+} -returnCodes error -result {iterations must be between 1 and 10000000}
+
+test mtls-crypto-pbkdf2-2.3 {length out of range} -body {
+    mtls::pbkdf2 sha1 password salt 1 65
+} -returnCodes error -result {length must be between 1 and 64}
+
+test mtls-crypto-exporter-1.1 {exporter rejects a non-TLS channel} -body {
+    mtls::exporter stdout EXPORTER-Channel-Binding 32
+} -returnCodes error -result {bad channel "stdout": not a TLS channel}
+
+foreach {n proto} {2 tls1.2 3 tls1.3} {
+    set other [expr {$proto eq "tls1.2" ? "tls1.3" : "tls1.2"}]
+    test mtls-crypto-exporter-1.$n "both ends export the same keying material over $proto" -constraints {
+        server client
+    } -setup {
+        set script [makeFile [string map [list @PROTO@ $proto @OTHER@ $other] [substvars {
+            package require mtls
+            proc accept { sock addr port } {
+                mtls::handshake $sock
+                puts [binary encode hex [mtls::exporter $sock EXPORTER-Channel-Binding 32]]
+                close $sock
+                set ::x done
+            }
+            set s [mtls::socket -server accept -certfile $selfsignedCert \
+                -@PROTO@ true -@OTHER@ false \
+                -keyfile $selfsignedKey -myaddr localhost $port]
+            set timer [after 2000 [list set x timeout]]
+            puts "ready"
+            vwait x
+            after cancel $timer
+            close $s
+        }]] script]
+    } -body {
+        set s [open "|[interpreter] $script" r]
+        gets $s
+        set sock [mtls::socket -$proto true -$other false -require false localhost $port]
+        mtls::handshake $sock
+        set mine [binary encode hex [mtls::exporter $sock EXPORTER-Channel-Binding 32]]
+        set theirs [gets $s]
+        list [string length $mine] [expr {$mine eq $theirs}] \
+            [expr {$mine ne [binary encode hex [mtls::exporter $sock other-label 32]]}]
+    } -result {64 1 1} -cleanup {
+        catch { close $sock }
+        catch { close $s }
+        unset -nocomplain s sock mine theirs
+    }
+}
+unset -nocomplain n proto other
+
+cleanupTests
